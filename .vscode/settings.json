@@ -1,0 +1,28 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "eslint.workingDirectories": [
+        {
+            "directory": "apps/web",
+            "changeProcessCWD": true
+        },
+        {
+            "directory": "apps/extension",
+            "changeProcessCWD": true
+        }
+    ],
+    "files.exclude": {
+        "**/.next": true,
+        "**/.output": true,
+        "**/.wxt": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.next": true,
+        "**/.output": true,
+        "**/.wxt": true
+    },
+    "typescript.preferences.importModuleSpecifier": "non-relative"
+}

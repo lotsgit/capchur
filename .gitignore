@@ -1,0 +1,27 @@
+node_modules/
+.pnpm-store/
+
+# Build output
+.next/
+.output/
+.wxt/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.idea/
