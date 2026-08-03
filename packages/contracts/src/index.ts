@@ -116,6 +116,58 @@ export const LocalSessionArchiveSchema = z.strictObject({
     })),
 });
 
+const GuideMediaSourceSchema = z.string().trim().min(1).max(2_000).refine(
+    (value) => value.startsWith("/") || HttpUrlSchema.safeParse(value).success,
+    "Guide media must use an absolute application path or HTTP(S) URL",
+);
+
+export const GuideMediaSchema = z.strictObject({
+    type: z.literal("image"),
+    source: GuideMediaSourceSchema,
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    alt: z.string().trim().max(500),
+});
+
+export const GuideAnnotationSchema = z.strictObject({
+    rect: ElementRectSchema,
+    coordinateSpace: z.literal("image-pixels"),
+    hidden: z.boolean().default(false),
+});
+
+export const GuideStepSchema = z.strictObject({
+    id: IdSchema,
+    position: z.number().int().nonnegative(),
+    title: NonEmptyStringSchema,
+    description: z.string().trim().max(5_000),
+    media: GuideMediaSchema.nullable(),
+    annotation: GuideAnnotationSchema.nullable(),
+});
+
+export const GuideSchema = z.strictObject({
+    version: z.literal(CONTRACT_VERSION),
+    id: IdSchema,
+    title: NonEmptyStringSchema,
+    description: z.string().trim().max(5_000),
+    updatedAt: TimestampSchema,
+    steps: z.array(GuideStepSchema).max(500),
+}).superRefine((guide, context) => {
+    const positions = new Set<number>();
+
+    for (const step of guide.steps) {
+        if (positions.has(step.position)) {
+            context.addIssue({
+                code: "custom",
+                message: "Guide step positions must be unique",
+                path: ["steps"],
+            });
+            return;
+        }
+
+        positions.add(step.position);
+    }
+});
+
 const MessageBaseShape = {
     version: z.literal(CONTRACT_VERSION),
     requestId: IdSchema,
@@ -240,6 +292,10 @@ export type ClickCapture = z.infer<typeof ClickCaptureSchema>;
 export type RecordingStatus = z.infer<typeof RecordingStatusSchema>;
 export type RecordingSession = z.infer<typeof RecordingSessionSchema>;
 export type LocalSessionArchive = z.infer<typeof LocalSessionArchiveSchema>;
+export type GuideMedia = z.infer<typeof GuideMediaSchema>;
+export type GuideAnnotation = z.infer<typeof GuideAnnotationSchema>;
+export type GuideStep = z.infer<typeof GuideStepSchema>;
+export type Guide = z.infer<typeof GuideSchema>;
 export type RecordingRequestMessage = z.infer<
     typeof RecordingRequestMessageSchema
 >;

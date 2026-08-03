@@ -5,6 +5,7 @@ import {
     CapturedStepSchema,
     ClickCaptureSchema,
     ExtensionMessageSchema,
+    GuideSchema,
     LocalSessionArchiveSchema,
     RecordingRequestMessageSchema,
     RecordingResponseMessageSchema,
@@ -69,6 +70,32 @@ const validClickCapture = {
     element: validStep.element,
     viewport: validStep.viewport,
     highlight: validStep.highlight,
+} as const;
+
+const validGuide = {
+    version: CONTRACT_VERSION,
+    id: "0198f1d0-c184-7000-8000-000000000004",
+    title: "Publish a product update",
+    description: "Prepare and publish a release note.",
+    updatedAt: 1_754_000_000_200,
+    steps: [{
+        id: "0198f1d0-c184-7000-8000-000000000005",
+        position: 0,
+        title: "Open the release editor",
+        description: "Choose Releases from the workspace navigation.",
+        media: {
+            type: "image",
+            source: "/fixtures/release-editor.png",
+            width: 1440,
+            height: 900,
+            alt: "Release editor with Releases highlighted",
+        },
+        annotation: {
+            rect: { x: 48, y: 190, width: 176, height: 44 },
+            coordinateSpace: "image-pixels",
+            hidden: false,
+        },
+    }],
 } as const;
 
 describe("domain contracts", () => {
@@ -231,6 +258,29 @@ describe("local session review contracts", () => {
         expect(LocalSessionArchiveSchema.safeParse({
             ...archive,
             screenshots: [{ storageKey: "image", dataUrl: "https://example.com/image.png" }],
+        }).success).toBe(false);
+    });
+});
+
+describe("guide domain contracts", () => {
+    it("parses an editable guide without capture transport fields", () => {
+        expect(GuideSchema.parse(validGuide)).toEqual(validGuide);
+        expect("sessionId" in validGuide.steps[0]).toBe(false);
+        expect("element" in validGuide.steps[0]).toBe(false);
+    });
+
+    it("rejects duplicate positions and capture-only fields", () => {
+        expect(GuideSchema.safeParse({
+            ...validGuide,
+            steps: [
+                validGuide.steps[0],
+                { ...validGuide.steps[0], id: stepId },
+            ],
+        }).success).toBe(false);
+
+        expect(GuideSchema.safeParse({
+            ...validGuide,
+            steps: [{ ...validGuide.steps[0], sessionId }],
         }).success).toBe(false);
     });
 });
