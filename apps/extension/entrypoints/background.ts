@@ -1,3 +1,10 @@
+import { createRecordingMessageHandler } from "../utils/recording-messages";
+import { createRecordingStorage } from "../utils/recording-storage";
+
 export default defineBackground(() => {
-  console.log('Hello background!', { id: browser.runtime.id });
+    const handleMessage = createRecordingMessageHandler(
+        createRecordingStorage(browser.storage.local),
+    );
+
+    browser.runtime.onMessage.addListener((message) => handleMessage(message));
 });

@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S02 - Recording state machine`
+**Current milestone:** `S03 - Popup recording controls`
 
-**Current repository status:** Runtime-validated, versioned capture and extension message contracts are implemented with focused Vitest coverage. Both applications compile against the shared contracts. The applications still contain generated starter screens and no capture workflow exists yet.
+**Current repository status:** Runtime-validated contracts and a persistent extension recording state machine are implemented with focused Vitest coverage. Start, stop, resume, status, and explicit clear commands survive service-worker restarts and recover safely from corrupted extension storage. The applications still contain generated starter screens and no browser action capture exists yet.
 
-**Last completed session:** `S01 - Test and contract foundation`
+**Last completed session:** `S02 - Recording state machine`
 
-**Next action:** Complete S02 only. Persist recording state before adding popup controls or browser capture behavior.
+**Next action:** Complete S03 only. Connect accessible popup controls to the persisted recording commands before adding browser capture behavior.
 
 ## Product Goal
 
@@ -248,23 +248,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S02 - Recording State Machine
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Start, stop, resume, query, and clear a recording session without relying on service-worker memory.
 
 **Tasks:**
 
-- [ ] Implement a pure recording state machine.
-- [ ] Add storage adapter around extension storage.
-- [ ] Handle typed start, stop, status, and clear messages in the service worker.
-- [ ] Persist state before acknowledging commands.
-- [ ] Test service-worker restart and corrupted storage recovery.
+- [x] Implement a pure recording state machine.
+- [x] Add storage adapter around extension storage.
+- [x] Handle typed start, stop, resume, status, and clear messages in the service worker.
+- [x] Persist state before acknowledging commands.
+- [x] Test service-worker restart and corrupted storage recovery.
 
 **Acceptance:** Start recording, reload the extension, and observe the same recording state; clear requires explicit user action.
 
+**Validation evidence:** Extension tests passed (6), including simulated service-worker restart, corrupted storage recovery, and mismatched clear protection. All 15 workspace tests, typecheck, lint, and production builds passed. The emitted MV3 manifest contains the required `storage` permission.
+
 ### S03 - Popup Recording Controls
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Replace starter popup UI with accessible controls connected to S02.
 
@@ -518,8 +520,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | --- | --- | --- | --- |
 | S00 Workspace setup | DONE | `d7a0774` | Baseline apps build successfully. |
 | S01 Test and contracts | DONE | This commit | Runtime contracts and focused tests passed. |
-| S02 Recording state | NEXT | - | Current work. |
-| S03 Popup controls | PLANNED | - | Depends on S02. |
+| S02 Recording state | DONE | This commit | Persistent commands and restart recovery passed. |
+| S03 Popup controls | NEXT | - | Current work; depends on S02. |
 | S04 Element analysis | PLANNED | - | Depends on S01. |
 | S05 Click capture | PLANNED | - | Depends on S02 and S04. |
 | S06 Screenshots | PLANNED | - | Depends on S05. |
@@ -546,6 +548,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-07-31 | Use action-based visible-tab screenshots with separate annotation metadata. | Browser API and editability constraints favor one screenshot per accepted action. | Continuous video and native desktop capture are outside the initial scope. |
 | 2026-07-31 | Build deterministic element descriptions before AI enhancement. | Improves privacy, cost, reliability, and offline behavior. | AI work waits until S15 and always has a deterministic fallback. |
 | 2026-08-03 | Use Zod 4 for shared runtime contracts and infer TypeScript types from strict schemas. | Zod provides runtime boundary validation while keeping wire schemas and static types in one owner package. | Producers and consumers import contracts from `@capchur/contracts`; unknown message and metadata fields are rejected. |
+| 2026-08-03 | Persist the active recording session under one validated `storage.local` key and serialize service-worker commands. | MV3 workers can suspend at any time, and concurrent commands must not overwrite newer state. | Commands load from storage, persist before replying, and delete invalid stored data during recovery; starting never replaces an existing session. |
 
 ## Known Risks
 
@@ -564,6 +567,7 @@ Append one concise row whenever a roadmap session is completed.
 | --- | --- | --- | --- | --- |
 | 2026-07-31 | S00 | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation. | Typecheck, lint, and build passed at setup. | `d7a0774` |
 | 2026-08-03 | S01 | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests. | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks. | This commit |
+| 2026-08-03 | S02 | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling. | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered. | This commit |
 
 ## Scope Changes
 
