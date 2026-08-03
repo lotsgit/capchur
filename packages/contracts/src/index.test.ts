@@ -75,6 +75,18 @@ describe("domain contracts", () => {
         expect(RecordingSessionSchema.parse(validSession)).toEqual(validSession);
     });
 
+    it("parses editable highlights in screenshot pixel coordinates", () => {
+        const step = {
+            ...validStep,
+            highlight: {
+                ...validStep.highlight,
+                coordinateSpace: "screenshot-pixels",
+            },
+        };
+
+        expect(CapturedStepSchema.parse(step).highlight).toEqual(step.highlight);
+    });
+
     it("rejects a step when a required contract field is removed", () => {
         const { description: _description, ...incompleteStep } = validStep;
 
@@ -171,5 +183,15 @@ describe("extension message contracts", () => {
                 capture: { ...validClickCapture, id: stepId, value: "secret" },
             }).success,
         ).toBe(false);
+    });
+
+    it("rejects screenshot coordinates from an untrusted click capture", () => {
+        expect(ClickCaptureSchema.safeParse({
+            ...validClickCapture,
+            highlight: {
+                ...validClickCapture.highlight,
+                coordinateSpace: "screenshot-pixels",
+            },
+        }).success).toBe(false);
     });
 });

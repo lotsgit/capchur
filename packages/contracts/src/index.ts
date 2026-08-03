@@ -59,8 +59,12 @@ export const ScreenshotMetadataSchema = z.strictObject({
 
 export const HighlightMetadataSchema = z.strictObject({
     rect: ElementRectSchema,
-    coordinateSpace: z.literal("viewport-css-pixels"),
+    coordinateSpace: z.enum(["viewport-css-pixels", "screenshot-pixels"]),
     hidden: z.boolean().default(false),
+});
+
+const ViewportHighlightMetadataSchema = HighlightMetadataSchema.extend({
+    coordinateSpace: z.literal("viewport-css-pixels"),
 });
 
 export const CapturedStepSchema = z.strictObject({
@@ -85,7 +89,7 @@ export const ClickCaptureSchema = z.strictObject({
     description: NonEmptyStringSchema,
     element: ElementMetadataSchema,
     viewport: ViewportSchema,
-    highlight: HighlightMetadataSchema,
+    highlight: ViewportHighlightMetadataSchema,
 });
 
 export const RecordingStatusSchema = z.enum([

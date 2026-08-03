@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S06 - Screenshots and highlights`
+**Current milestone:** `S07 - Local session review`
 
-**Current repository status:** Runtime-validated contracts, persistent recording state, popup controls, pure element analysis, and an approved-page click pipeline are implemented with focused Vitest coverage. Starting or resuming requests the active HTTP(S) hostname, injects a duplicate-safe capture-phase listener, validates sanitized click candidates, and persists trusted step IDs and sequence numbers in the service worker. Screenshots are not captured yet.
+**Current repository status:** Runtime-validated contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, and visible-tab screenshots are implemented with focused Vitest coverage. Accepted steps persist before throttled screenshot capture, PNG pixels are stored separately in IndexedDB, and editable highlights are converted from viewport CSS coordinates using actual screenshot dimensions while retaining viewport, scroll, zoom, visual viewport, and DPR metadata.
 
-**Last completed session:** `S05 - Click capture pipeline`
+**Last completed session:** `S06 - Screenshots and highlights`
 
-**Next action:** Complete S06 only. Attach visible-tab screenshots and accurate editable highlight metadata to accepted steps.
+**Next action:** Complete S07 only. Add a local session review surface for inspecting and editing persisted steps and screenshots.
 
 ## Product Goal
 
@@ -319,23 +319,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S06 - Screenshots And Highlights
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Attach an accurate visible-tab screenshot and editable highlight metadata to every accepted step.
 
 **Tasks:**
 
-- [ ] Capture through the service worker with rate limiting.
-- [ ] Store viewport, scroll, zoom, visual viewport, and device pixel ratio.
-- [ ] Convert CSS coordinates to screenshot coordinates.
-- [ ] Keep screenshot pixels separate from highlight metadata.
-- [ ] Handle capture failure without losing the underlying step.
+- [x] Capture through the service worker with rate limiting.
+- [x] Store viewport, scroll, zoom, visual viewport, and device pixel ratio.
+- [x] Convert CSS coordinates to screenshot coordinates.
+- [x] Keep screenshot pixels separate from highlight metadata.
+- [x] Handle capture failure without losing the underlying step.
 
 **Acceptance:** Highlights align at 100%, 125%, and 150% browser zoom and after scrolling.
 
+**Validation evidence:** All 53 workspace tests passed, including actual-PNG dimension parsing, 100%, 125%, and 150% zoom conversion, scrolled and offset visual viewports, clipping, capture throttling, separate image storage, successful step enrichment, and screenshot-failure fallback. Repository typecheck, lint, and production builds passed with no permission or dependency changes.
+
 ### S07 - Local Session Review
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Let users inspect, rename, delete, and reorder captured steps before cloud work begins.
 
@@ -530,8 +532,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S03 Popup controls     | DONE    | This commit       | Persisted controls and popup states passed.                      |
 | S04 Element analysis   | DONE    | This commit       | Deterministic privacy-safe metadata and locator fixtures passed. |
 | S05 Click capture      | DONE    | This commit       | Five ordered clicks persist through a validated sender boundary. |
-| S06 Screenshots        | NEXT    | -                 | Depends on S05.                                                  |
-| S07 Local review       | PLANNED | -                 | MVP capture checkpoint.                                          |
+| S06 Screenshots        | DONE    | This commit       | Throttled screenshots and pixel-aligned metadata passed.         |
+| S07 Local review       | NEXT    | -                 | MVP capture checkpoint.                                          |
 | S08 Web editor         | PLANNED | -                 | Can use fixtures after guide contract exists.                    |
 | S09 Persistence API    | PLANNED | -                 | Depends on S08 model.                                            |
 | S10 Authentication     | PLANNED | -                 | Required before cloud sync.                                      |
@@ -559,6 +561,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-03 | Keep DOM element analysis in a pure shared package and return no metadata for sensitive or unsupported targets.     | Capture descriptions and locators need deterministic tests and must not expose password or payment fields across extension boundaries.                       | S05 consumes a discriminated analysis result; locator candidates remain metadata and never appear in user-facing descriptions.                                           |
 | 2026-08-03 | Request optional access for only the active HTTP(S) hostname and keep persistence fields worker-owned.              | Click capture must start on the current page without permanent broad host access, and page context cannot be trusted to assign session identity or ordering. | The popup injects the registered script after permission is granted; the worker verifies the sender URL, assigns IDs and sequence numbers, and persists before replying. |
 | 2026-08-03 | Upgrade WXT and pin vulnerable transitive dependencies at the pnpm workspace boundary.                              | Current stable Next and WXT dependency ranges still resolve known vulnerable PostCSS, Sharp, shell-quote, and adm-zip releases.                              | Reassess and remove each override when upstream stable ranges include the patched release; validate Chrome, Firefox, and Next image processing after dependency changes. |
+| 2026-08-03 | Store screenshot PNG blobs in extension IndexedDB and derive highlight pixels from each image's actual dimensions.     | Large image pixels do not belong in the validated session metadata key, and browser zoom or DPR assumptions alone cannot guarantee overlay alignment.         | Steps retain an IndexedDB storage key and screenshot-space annotation; S07 must load images through the screenshot storage boundary and keep annotations independently editable. |
 
 ## Known Risks
 
@@ -581,6 +584,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-08-03 | S03     | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states. | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected.                                             | This commit |
 | 2026-08-03 | S04     | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection.                                | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded.                                   | This commit |
 | 2026-08-03 | S05     | Added optional-origin click capture, composed-path element analysis, strict capture messages, sender validation, and ordered worker persistence.      | 43 tests, typecheck, lint, and production builds passed; emitted permissions inspected and existing audit findings remain recorded. | This commit |
+| 2026-08-03 | S06     | Added throttled active-tab PNG capture, separate IndexedDB image storage, actual-image coordinate conversion, and durable failure fallback.             | 53 tests, typecheck, lint, and production builds passed; zoom, scrolling, clipping, rate limiting, and capture failure covered.      | This commit |
 
 ## Scope Changes
 

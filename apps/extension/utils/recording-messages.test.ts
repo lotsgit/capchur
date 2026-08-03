@@ -238,4 +238,88 @@ describe("recording service-worker messages", () => {
         });
         expect(storageArea.values.recordingSession).toMatchObject({ steps: [] });
     });
+
+    it("attaches screenshot metadata after the underlying step is persisted", async () => {
+        const storageArea = new FakeStorageArea();
+        const screenshotStepId = "0198f1d0-c184-7000-8000-000000000010";
+        const attachScreenshot = async () => ({
+            screenshot: {
+                id: screenshotStepId,
+                mimeType: "image/png" as const,
+                width: 1600,
+                height: 900,
+                capturedAt: 301,
+                storageKey: `screenshots/${sessionId}/${screenshotStepId}`,
+            },
+            highlight: {
+                rect: { x: 125, y: 100, width: 150, height: 45 },
+                coordinateSpace: "screenshot-pixels" as const,
+                hidden: false,
+            },
+            viewport: { ...clickCapture.viewport, zoom: 1.25 },
+        });
+        const ids = [sessionId, screenshotStepId];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            {
+                now: () => 300,
+                createId: () => ids.shift() ?? screenshotStepId,
+                attachScreenshot,
+            },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+
+        const response = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click",
+            requestId,
+            capture: clickCapture,
+        }, { url: clickCapture.url, tabId: 4, windowId: 2 });
+
+        expect(response).toMatchObject({
+            ok: true,
+            session: {
+                steps: [{
+                    screenshot: { width: 1600, height: 900 },
+                    highlight: { coordinateSpace: "screenshot-pixels" },
+                    viewport: { zoom: 1.25 },
+                }],
+            },
+        });
+        expect(storageArea.values.recordingSession).toEqual(
+            response.ok ? response.session : null,
+        );
+    });
+
+    it("keeps the persisted step when screenshot capture fails", async () => {
+        const storageArea = new FakeStorageArea();
+        const screenshotStepId = "0198f1d0-c184-7000-8000-000000000010";
+        const ids = [sessionId, screenshotStepId];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            {
+                now: () => 300,
+                createId: () => ids.shift() ?? screenshotStepId,
+                attachScreenshot: async () => {
+                    throw new Error("Visible-tab capture was denied.");
+                },
+            },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+
+        const response = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click",
+            requestId,
+            capture: clickCapture,
+        }, { url: clickCapture.url, tabId: 4, windowId: 2 });
+
+        expect(response).toMatchObject({
+            ok: true,
+            session: { steps: [{ id: screenshotStepId, screenshot: null }] },
+        });
+        expect(storageArea.values.recordingSession).toEqual(
+            response.ok ? response.session : null,
+        );
+    });
 });

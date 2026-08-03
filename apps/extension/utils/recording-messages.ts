@@ -13,23 +13,38 @@ import {
     type RecordingStateCommand,
 } from "./recording-state";
 import type { RecordingStorage } from "./recording-storage";
+import type {
+    AttachScreenshot,
+    ScreenshotSource,
+} from "./screenshot-capture";
 
 interface RecordingMessageHandlerOptions {
     now?: () => number;
     createId?: () => string;
+    attachScreenshot?: AttachScreenshot;
+    clearScreenshots?: () => Promise<void>;
+}
+
+export interface RecordingMessageSource {
+    url?: string;
+    tabId?: number;
+    windowId?: number;
 }
 
 export function createRecordingMessageHandler(
     storage: RecordingStorage,
     options: RecordingMessageHandlerOptions = {},
-): (message: unknown, sourceUrl?: string) => Promise<RecordingResponseMessage> {
+): (
+    message: unknown,
+    source?: string | RecordingMessageSource,
+) => Promise<RecordingResponseMessage> {
     const now = options.now ?? Date.now;
     const createId = options.createId ?? (() => crypto.randomUUID());
     let pending = Promise.resolve();
 
-    return (message, sourceUrl) => {
+    return (message, source) => {
         const response = pending.then(() =>
-            handleRecordingMessage(storage, message, sourceUrl, now, createId),
+            handleRecordingMessage(storage, message, source, now, createId, options),
         );
         pending = response.then(
             () => undefined,
@@ -42,9 +57,10 @@ export function createRecordingMessageHandler(
 async function handleRecordingMessage(
     storage: RecordingStorage,
     untrustedMessage: unknown,
-    sourceUrl: string | undefined,
+    source: string | RecordingMessageSource | undefined,
     now: () => number,
     createId: () => string,
+    options: RecordingMessageHandlerOptions,
 ): Promise<RecordingResponseMessage> {
     const parsedMessage = RecordingRequestMessageSchema.safeParse(untrustedMessage);
     if (!parsedMessage.success) {
@@ -59,7 +75,8 @@ async function handleRecordingMessage(
         }
 
         if (message.type === "capture.click") {
-            if (!isMatchingPageSource(sourceUrl, message.capture.url)) {
+            const normalizedSource = normalizeSource(source);
+            if (!isMatchingPageSource(normalizedSource.url, message.capture.url)) {
                 return errorResponse(
                     message.requestId,
                     "INVALID_MESSAGE",
@@ -83,7 +100,25 @@ async function handleRecordingMessage(
                 steps: [...currentSession.steps, step],
             };
             await storage.save(session);
-            return successResponse(message.requestId, session);
+
+            const screenshotSource = toScreenshotSource(normalizedSource);
+            if (!options.attachScreenshot || !screenshotSource) {
+                return successResponse(message.requestId, session);
+            }
+
+            try {
+                const attachment = await options.attachScreenshot(step, screenshotSource);
+                const capturedStep = { ...step, ...attachment };
+                const capturedSession = {
+                    ...session,
+                    updatedAt: now(),
+                    steps: [...currentSession.steps, capturedStep],
+                };
+                await storage.save(capturedSession);
+                return successResponse(message.requestId, capturedSession);
+            } catch {
+                return successResponse(message.requestId, session);
+            }
         }
 
         const transition = transitionRecordingState(
@@ -93,6 +128,7 @@ async function handleRecordingMessage(
             createId,
         );
         if (transition.action === "clear") {
+            await options.clearScreenshots?.();
             await storage.clear();
         } else {
             await storage.save(transition.session);
@@ -187,4 +223,16 @@ function isMatchingPageSource(sourceUrl: string | undefined, captureUrl: string)
     } catch {
         return false;
     }
+}
+
+function normalizeSource(
+    source: string | RecordingMessageSource | undefined,
+): RecordingMessageSource {
+    return typeof source === "string" ? { url: source } : (source ?? {});
+}
+
+function toScreenshotSource(source: RecordingMessageSource): ScreenshotSource | null {
+    return source.tabId === undefined || source.windowId === undefined
+        ? null
+        : { tabId: source.tabId, windowId: source.windowId };
 }
