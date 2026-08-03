@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S04 - Element analysis core`
+**Current milestone:** `S05 - Click capture pipeline`
 
-**Current repository status:** Runtime-validated contracts, a persistent extension recording state machine, and accessible popup controls are implemented with focused Vitest coverage. The popup reloads persisted state, reports duration and step count, handles unavailable or inaccessible tabs, and exposes explicit start, stop, resume, and clear actions. No browser action capture or element analysis exists yet.
+**Current repository status:** Runtime-validated contracts, a persistent extension recording state machine, accessible popup controls, and a pure element-analysis package are implemented with focused Vitest coverage. Element analysis resolves nested actionable targets, produces deterministic descriptions and shadow-aware locator candidates, and rejects sensitive or unsupported elements without returning metadata. No browser action capture exists yet.
 
 **Last completed session:** `S03 - Popup recording controls`
 
-**Next action:** Complete S04 only. Build pure, privacy-safe element analysis before registering browser action capture.
+**Next action:** Complete S05 only. Connect the tested element-analysis core to approved-page click capture and persisted, validated messages.
 
 ## Product Goal
 
@@ -283,23 +283,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S04 - Element Analysis Core
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Convert a DOM target into safe, useful metadata and a deterministic description.
 
 **Tasks:**
 
-- [ ] Add `packages/capture-core` with pure element naming and selector logic.
-- [ ] Prioritize accessible name, label, text, alternative text, title, placeholder, and nearby context.
-- [ ] Generate multiple locator candidates without exposing them in descriptions.
-- [ ] Detect sensitive and unsupported elements.
-- [ ] Test native controls, ARIA controls, nested targets, shadow DOM paths, and missing labels.
+- [x] Add `packages/capture-core` with pure element naming and selector logic.
+- [x] Prioritize accessible name, label, text, alternative text, title, placeholder, and nearby context.
+- [x] Generate multiple locator candidates without exposing them in descriptions.
+- [x] Detect sensitive and unsupported elements.
+- [x] Test native controls, ARIA controls, nested targets, shadow DOM paths, and missing labels.
 
 **Acceptance:** Fixtures produce descriptions such as `Click the Save button`; passwords and sensitive values are excluded.
 
+**Validation evidence:** All 36 workspace tests passed, including 15 capture-core fixtures for naming priority, native and ARIA controls, nested targets, deterministic locator candidates, open shadow roots, unlabeled controls, and privacy rejection. Repository typecheck, lint, and production builds passed. The dependency audit reported only the existing toolchain advisories recorded under **Known Risks**.
+
 ### S05 - Click Capture Pipeline
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Capture supported clicks from ordinary HTTP(S) pages and persist steps through validated messages.
 
@@ -524,8 +526,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S01 Test and contracts | DONE | This commit | Runtime contracts and focused tests passed. |
 | S02 Recording state | DONE | This commit | Persistent commands and restart recovery passed. |
 | S03 Popup controls | DONE | This commit | Persisted controls and popup states passed. |
-| S04 Element analysis | NEXT | - | Current work; depends on S01. |
-| S05 Click capture | PLANNED | - | Depends on S02 and S04. |
+| S04 Element analysis | DONE | This commit | Deterministic privacy-safe metadata and locator fixtures passed. |
+| S05 Click capture | NEXT | - | Depends on S02 and S04. |
 | S06 Screenshots | PLANNED | - | Depends on S05. |
 | S07 Local review | PLANNED | - | MVP capture checkpoint. |
 | S08 Web editor | PLANNED | - | Can use fixtures after guide contract exists. |
@@ -552,6 +554,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-03 | Use Zod 4 for shared runtime contracts and infer TypeScript types from strict schemas. | Zod provides runtime boundary validation while keeping wire schemas and static types in one owner package. | Producers and consumers import contracts from `@capchur/contracts`; unknown message and metadata fields are rejected. |
 | 2026-08-03 | Persist the active recording session under one validated `storage.local` key and serialize service-worker commands. | MV3 workers can suspend at any time, and concurrent commands must not overwrite newer state. | Commands load from storage, persist before replying, and delete invalid stored data during recovery; starting never replaces an existing session. |
 | 2026-08-03 | Use `activeTab` for popup page-availability checks without requesting host patterns. | The popup must distinguish recordable websites from protected pages while preserving least privilege before capture begins. | Access is temporary and user-invoked; broader host access remains deferred to S05. |
+| 2026-08-03 | Keep DOM element analysis in a pure shared package and return no metadata for sensitive or unsupported targets. | Capture descriptions and locators need deterministic tests and must not expose password or payment fields across extension boundaries. | S05 consumes a discriminated analysis result; locator candidates remain metadata and never appear in user-facing descriptions. |
 
 ## Known Risks
 
@@ -572,6 +575,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-08-03 | S01 | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests. | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks. | This commit |
 | 2026-08-03 | S02 | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling. | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered. | This commit |
 | 2026-08-03 | S03 | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states. | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected. | This commit |
+| 2026-08-03 | S04 | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection. | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded. | This commit |
 
 ## Scope Changes
 
