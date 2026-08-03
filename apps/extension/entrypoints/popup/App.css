@@ -1,42 +1,226 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+.popup {
+  box-sizing: border-box;
+  width: 360px;
+  min-height: 350px;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 213, 79, 0.16), transparent 42%),
+    #fffdf7;
+  color: #25251f;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #54bc4ae0);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.popup--centered {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
+.masthead {
+  display: grid;
+  grid-template-columns: 42px 1fr 12px;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #d8d5ca;
+}
+
+.brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: #25251f;
+  color: #ffd54f;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: #68675f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #a6a49a;
+}
+
+.status-dot--live {
+  background: #e14d3c;
+  box-shadow: 0 0 0 4px rgba(225, 77, 60, 0.14);
+}
+
+.session-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 22px 0;
+  border-block: 1px solid #d8d5ca;
+}
+
+.session-summary div {
+  display: grid;
+  gap: 3px;
+  padding: 14px 4px;
+}
+
+.session-summary div + div {
+  padding-left: 20px;
+  border-left: 1px solid #d8d5ca;
+}
+
+.session-summary span {
+  color: #68675f;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.session-summary strong {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-copy {
+  margin: 28px 0;
+  color: #56554e;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-left: 4px solid #d09016;
+  background: #fff4cf;
+  color: #53400d;
+}
+
+.notice--error {
+  border-color: #bd3c30;
+  background: #ffebe8;
+  color: #67221c;
+}
+
+.notice strong {
+  font-size: 13px;
+}
+
+.notice p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.actions {
+  display: grid;
+  gap: 9px;
+}
+
+.button,
+.cancel-clear {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:focus-visible,
+.cancel-clear:focus-visible {
+  outline: 3px solid #187b67;
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.button--primary {
+  background: #187b67;
+  color: #ffffff;
+}
+
+.button--primary:not(:disabled):hover {
+  background: #116554;
+}
+
+.button--stop {
+  background: #e14d3c;
+  color: #ffffff;
+}
+
+.button--stop:not(:disabled):hover {
+  background: #bd3c30;
+}
+
+.button--quiet {
+  border-color: #c6c3b9;
+  background: transparent;
+  color: #4f4e47;
+}
+
+.button--quiet:not(:disabled):hover {
+  background: #f2efe5;
+}
+
+.button--confirm {
+  border-color: #bd3c30;
+  color: #9b2f26;
+}
+
+.cancel-clear {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 4px;
+  background: transparent;
+  color: #68675f;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.loading-mark {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #d8d5ca;
+  border-top-color: #187b67;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.loading-label {
+  margin: 0;
+  color: #56554e;
+  font-size: 13px;
+}
+
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+@media (prefers-reduced-motion: reduce) {
+  .loading-mark {
+    animation: none;
   }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }

@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S03 - Popup recording controls`
+**Current milestone:** `S04 - Element analysis core`
 
-**Current repository status:** Runtime-validated contracts and a persistent extension recording state machine are implemented with focused Vitest coverage. Start, stop, resume, status, and explicit clear commands survive service-worker restarts and recover safely from corrupted extension storage. The applications still contain generated starter screens and no browser action capture exists yet.
+**Current repository status:** Runtime-validated contracts, a persistent extension recording state machine, and accessible popup controls are implemented with focused Vitest coverage. The popup reloads persisted state, reports duration and step count, handles unavailable or inaccessible tabs, and exposes explicit start, stop, resume, and clear actions. No browser action capture or element analysis exists yet.
 
-**Last completed session:** `S02 - Recording state machine`
+**Last completed session:** `S03 - Popup recording controls`
 
-**Next action:** Complete S03 only. Connect accessible popup controls to the persisted recording commands before adding browser capture behavior.
+**Next action:** Complete S04 only. Build pure, privacy-safe element analysis before registering browser action capture.
 
 ## Product Goal
 
@@ -266,22 +266,24 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S03 - Popup Recording Controls
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Replace starter popup UI with accessible controls connected to S02.
 
 **Tasks:**
 
-- [ ] Build start, stop, resume, clear, and open-session commands.
-- [ ] Show recording status, duration, and step count.
-- [ ] Add loading, permission-denied, unavailable-page, and error states.
-- [ ] Remove generated WXT/React demo assets and styles.
+- [x] Build start, stop, resume, clear, and open-session commands.
+- [x] Show recording status, duration, and step count.
+- [x] Add loading, permission-denied, unavailable-page, and error states.
+- [x] Remove generated WXT/React demo assets and styles.
 
 **Acceptance:** Keyboard-only users can control recording; reopening the popup reflects persisted state.
 
+**Validation evidence:** All 21 workspace tests passed, including six focused popup command, response-validation, page-availability, and duration tests. Repository typecheck, lint, and production builds passed. The emitted MV3 manifest contains only the required `activeTab` and `storage` permissions, and the popup uses native keyboard controls with visible focus states and live status/error announcements.
+
 ### S04 - Element Analysis Core
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Convert a DOM target into safe, useful metadata and a deterministic description.
 
@@ -521,8 +523,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S00 Workspace setup | DONE | `d7a0774` | Baseline apps build successfully. |
 | S01 Test and contracts | DONE | This commit | Runtime contracts and focused tests passed. |
 | S02 Recording state | DONE | This commit | Persistent commands and restart recovery passed. |
-| S03 Popup controls | NEXT | - | Current work; depends on S02. |
-| S04 Element analysis | PLANNED | - | Depends on S01. |
+| S03 Popup controls | DONE | This commit | Persisted controls and popup states passed. |
+| S04 Element analysis | NEXT | - | Current work; depends on S01. |
 | S05 Click capture | PLANNED | - | Depends on S02 and S04. |
 | S06 Screenshots | PLANNED | - | Depends on S05. |
 | S07 Local review | PLANNED | - | MVP capture checkpoint. |
@@ -549,6 +551,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-07-31 | Build deterministic element descriptions before AI enhancement. | Improves privacy, cost, reliability, and offline behavior. | AI work waits until S15 and always has a deterministic fallback. |
 | 2026-08-03 | Use Zod 4 for shared runtime contracts and infer TypeScript types from strict schemas. | Zod provides runtime boundary validation while keeping wire schemas and static types in one owner package. | Producers and consumers import contracts from `@capchur/contracts`; unknown message and metadata fields are rejected. |
 | 2026-08-03 | Persist the active recording session under one validated `storage.local` key and serialize service-worker commands. | MV3 workers can suspend at any time, and concurrent commands must not overwrite newer state. | Commands load from storage, persist before replying, and delete invalid stored data during recovery; starting never replaces an existing session. |
+| 2026-08-03 | Use `activeTab` for popup page-availability checks without requesting host patterns. | The popup must distinguish recordable websites from protected pages while preserving least privilege before capture begins. | Access is temporary and user-invoked; broader host access remains deferred to S05. |
 
 ## Known Risks
 
@@ -568,6 +571,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-07-31 | S00 | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation. | Typecheck, lint, and build passed at setup. | `d7a0774` |
 | 2026-08-03 | S01 | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests. | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks. | This commit |
 | 2026-08-03 | S02 | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling. | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered. | This commit |
+| 2026-08-03 | S03 | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states. | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected. | This commit |
 
 ## Scope Changes
 

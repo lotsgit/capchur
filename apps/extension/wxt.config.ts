@@ -8,7 +8,7 @@ export default defineConfig({
         },
     },
     manifest: {
-        permissions: ["storage"],
+        permissions: ["activeTab", "storage"],
     },
     modules: ["@wxt-dev/module-react"],
 });
