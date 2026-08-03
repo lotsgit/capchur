@@ -1,5 +1,13 @@
 # Capchur Project Instructions
 
+## Global Development Reference
+
+- Before planning or generating code, read `docs/DEVELOPMENT_PLAYBOOK.md`, especially **Current State**, **Architecture Rules**, and the active `NEXT` session.
+- Implement only the active roadmap session unless the user explicitly changes scope. Explain prerequisites before working ahead of an incomplete dependency.
+- Treat the playbook as the system-wide source of truth, not as optional documentation. Reconcile proposed changes with extension, web, shared-contract, persistence, export, privacy, and test impacts.
+- When a session changes architecture, contracts, setup, commands, risk, or milestone status, update the playbook in the same change.
+- Keep exactly one roadmap session marked `NEXT`. Mark a session `DONE` only after its acceptance criteria and required validation pass, and add its evidence to the completion record.
+
 ## Priorities
 
 - Prefer correctness, security, maintainability, and clear ownership over speed or cleverness.

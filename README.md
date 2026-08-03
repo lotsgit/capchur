@@ -2,6 +2,10 @@
 
 Capchur is a browser workflow recorder and guide editor. The repository is a pnpm workspace containing a WXT browser extension, a Next.js web application, and shared TypeScript contracts.
 
+## Development Roadmap
+
+Use [docs/DEVELOPMENT_PLAYBOOK.md](docs/DEVELOPMENT_PLAYBOOK.md) as the global reference for architecture, beginner-friendly commands, session sequencing, acceptance criteria, decisions, risks, and progress. Read it before starting a new coding session.
+
 ## Prerequisites
 
 - Node.js 22 or newer
