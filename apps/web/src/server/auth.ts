@@ -23,6 +23,10 @@ export interface WorkspacePrincipal {
   role: schema.WorkspaceRole;
 }
 
+export interface ExtensionTokenReader {
+  authenticateToken(token: string): Promise<WorkspacePrincipal | null>;
+}
+
 type Database = DatabaseHandle["database"];
 
 async function createDefaultWorkspace(database: Database, userId: string, name: string) {
@@ -74,9 +78,18 @@ export class WorkspaceAuthenticator {
   constructor(
     private readonly sessions: SessionReader,
     private readonly database: Database,
+    private readonly extensionTokens?: ExtensionTokenReader,
   ) {}
 
   async authenticate(request: Request): Promise<WorkspacePrincipal | null> {
+    const authorization = request.headers.get("authorization");
+    if (authorization?.startsWith("Bearer ") && this.extensionTokens) {
+      const principal = await this.extensionTokens.authenticateToken(
+        authorization.slice("Bearer ".length),
+      );
+      if (principal) return principal;
+    }
+
     const authSession = await this.sessions.getSession(request.headers);
     if (!authSession || authSession.session.expiresAt.getTime() <= Date.now()) {
       return null;

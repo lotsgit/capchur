@@ -44,7 +44,11 @@ describe("persistence repository", () => {
   beforeEach(async () => {
     dataDirectory = await mkdtemp(join(tmpdir(), "capchur-database-"));
     client = new PGlite(join(dataDirectory, "postgres"));
-    for (const migrationName of ["0000_persistence.sql", "0001_pale_machine_man.sql"]) {
+    for (const migrationName of [
+      "0000_persistence.sql",
+      "0001_pale_machine_man.sql",
+      "0002_fair_puff_adder.sql",
+    ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));
     }
@@ -90,5 +94,49 @@ describe("persistence repository", () => {
     const persisted = await repository.getGuide(workspaceId, guideId);
     expect(persisted?.title).toBe("Original");
     expect(persisted?.steps[0]?.id).toBe(stepId);
+  });
+
+  it("maps repeated session uploads to one guide and rejects stale revisions", async () => {
+    const repository = createPersistenceRepository(handle);
+    const sessionId = "0198f1d0-c184-7000-8000-000000000205";
+    const idempotencyKey = "0198f1d0-c184-7000-8000-000000000206";
+    const session = {
+      id: sessionId,
+      status: "stopped" as const,
+      startedAt: 100,
+      updatedAt: 300,
+      steps: [],
+    };
+
+    const first = await repository.syncSession(
+      workspaceId,
+      session,
+      idempotencyKey,
+      guideId,
+      1_000,
+    );
+    const repeated = await repository.syncSession(
+      workspaceId,
+      session,
+      idempotencyKey,
+      otherGuideId,
+      2_000,
+    );
+    const stale = await repository.syncSession(
+      workspaceId,
+      { ...session, updatedAt: 200 },
+      "0198f1d0-c184-7000-8000-000000000207",
+      otherGuideId,
+      3_000,
+    );
+
+    expect(first).toMatchObject({ status: "synced", guide: { id: guideId } });
+    expect(repeated).toMatchObject({
+      status: "synced",
+      guide: { id: guideId },
+      syncedAt: 1_000,
+    });
+    expect(stale).toEqual({ status: "conflict" });
+    expect(await repository.getGuide(workspaceId, otherGuideId)).toBeNull();
   });
 });

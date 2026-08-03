@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 
 type AuthMode = "sign-in" | "sign-up";
 
-export function SignInForm() {
+export function SignInForm({ callbackPath = "/" }: { callbackPath?: string }) {
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function SignInForm() {
       setPending(false);
       return;
     }
-    window.location.assign("/");
+    window.location.assign(callbackPath);
   }
 
   return (

@@ -146,6 +146,40 @@ export const recordingSessions = pgTable("recording_sessions", {
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
+export const extensionAuthorizationCodes = pgTable("extension_authorization_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  userId: text("user_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  role: text("role").$type<WorkspaceRole>().notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+});
+
+export const extensionAccessTokens = pgTable("extension_access_tokens", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: text("user_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  role: text("role").$type<WorkspaceRole>().notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+});
+
+export const sessionSyncs = pgTable(
+  "session_syncs",
+  {
+    sessionId: uuid("session_id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    sourceUpdatedAt: bigint("source_updated_at", { mode: "number" }).notNull(),
+    syncedAt: bigint("synced_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("session_syncs_idempotency_key_idx").on(table.idempotencyKey),
+    index("session_syncs_workspace_id_idx").on(table.workspaceId),
+  ],
+);
+
 export const storedObjects = pgTable("stored_objects", {
   objectKey: text("object_key").primaryKey(),
   workspaceId: text("workspace_id").notNull(),

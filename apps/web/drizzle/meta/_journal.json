@@ -15,6 +15,13 @@
       "when": 1785760862314,
       "tag": "0001_pale_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785766714362,
+      "tag": "0002_fair_puff_adder",
+      "breakpoints": true
     }
   ]
 }

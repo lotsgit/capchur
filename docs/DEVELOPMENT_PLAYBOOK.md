@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S11 - Extension authentication and sync`
+**Current milestone:** `S12 - Complete editing and privacy tools`
 
-**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, visible-tab screenshots, local session review, a responsive web guide editor, trusted guide/session/image persistence APIs, and database-backed web authentication with workspace roles are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private image objects locally; production adapters target PostgreSQL and S3-compatible storage.
+**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, and resilient extension-to-cloud session sync are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private image objects locally; production adapters target PostgreSQL and S3-compatible storage.
 
-**Last completed session:** `S10 - Authentication and workspaces`
+**Last completed session:** `S11 - Extension authentication and sync`
 
-**Next action:** Complete S11 only. Authenticate the extension and add resilient local-to-cloud session sync.
+**Next action:** Complete S12 only. Add the remaining guide editing and privacy tools.
 
 ## Product Goal
 
@@ -407,22 +407,24 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S11 - Extension Authentication And Sync
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Securely upload local sessions and open them in the web editor.
 
 **Tasks:**
 
-- [ ] Authenticate the extension without storing long-lived secrets in page context.
-- [ ] Add resumable upload queue and idempotency keys.
-- [ ] Map local session IDs to server guide IDs.
-- [ ] Add offline, retry, conflict, expired-session, and partial-upload handling.
+- [x] Authenticate the extension without storing long-lived secrets in page context.
+- [x] Add resumable upload queue and idempotency keys.
+- [x] Map local session IDs to server guide IDs.
+- [x] Add offline, retry, conflict, expired-session, and partial-upload handling.
 
 **Acceptance:** Record offline, reconnect, upload once, and open the correct guide in the editor.
 
+**Validation evidence:** All 79 workspace tests passed, including one-time extension authorization, hashed expiring bearer tokens, idempotent session-to-guide mapping, stale-revision conflicts, offline retries with stable keys, partial screenshot checkpoints, and expired-session preservation. Repository typecheck, lint, and production builds passed. The emitted MV3 manifest contains the required `identity` and `alarms` permissions plus only the configured web origin; browser checks confirmed the connection surface, mobile layout, protected mapped-guide URL, and sign-in redirect.
+
 ### S12 - Complete Editing And Privacy Tools
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Deliver expected guide editing tools with safe image handling.
 
@@ -545,8 +547,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S08 Web editor         | DONE    | This commit       | Fixture editing and responsive workflow checks passed.           |
 | S09 Persistence API    | DONE    | This commit       | Transactional guides/sessions and signed image storage passed.   |
 | S10 Authentication     | DONE    | This commit       | Database sessions and workspace role isolation passed.           |
-| S11 Extension sync     | NEXT    | -                 | Authenticate and sync local extension sessions.                  |
-| S12 Complete editing   | PLANNED | -                 | Depends on cloud editor.                                         |
+| S11 Extension sync     | DONE    | This commit       | Resumable authenticated sync maps local sessions to guides.      |
+| S12 Complete editing   | NEXT    | -                 | Add complete editing and privacy controls.                       |
 | S13 HTML/Markdown      | PLANNED | -                 | Establishes export model.                                        |
 | S14 PDF/DOCX           | PLANNED | -                 | Depends on S13.                                                  |
 | S15 AI descriptions    | PLANNED | -                 | Deterministic fallback required.                                 |
@@ -575,6 +577,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-03 | Use one Drizzle PostgreSQL schema with persistent PGlite and filesystem objects for development, plus PostgreSQL and S3-compatible production adapters. | Local development and integration tests need restart-safe infrastructure without exposing production credentials or requiring external services.             | Migrations are shared across database drivers; images use short-lived signed URLs and private object keys; production requires `DATABASE_URL`, `S3_BUCKET`, and standard AWS credentials.                                                                      |
 | 2026-08-03 | Authenticate S09 API requests through server-only bearer-token mappings until S10 introduces users, sessions, and workspaces.                           | S09 requires a trusted authorization boundary, while provider selection and complete workspace roles explicitly belong to S10.                               | `CAPCHUR_API_TOKENS` maps high-entropy development/service tokens to owner IDs; every repository operation scopes by owner; S10 must replace this transitional identity source without weakening repository authorization.                                     |
 | 2026-08-03 | Use Better Auth with its Drizzle adapter for web sessions while keeping workspace membership and authorization in Capchur-owned tables.                 | The web app needs maintained credential hashing, signed expiring cookies, and session revocation, while workspace data ownership remains a core domain rule. | New users receive an owner workspace; members may read workspace resources, only owners mutate them, every API and object lookup scopes by workspace, and S11 must use an extension-safe Better Auth flow without exposing long-lived secrets to page context. |
+| 2026-08-03 | Authorize the extension through browser identity using one-time codes and hashed one-hour bearer tokens, and sync through a durable worker-owned queue. | Page context must never receive extension credentials, while MV3 suspension, offline recording, and partial image uploads require persisted resumable state. | The extension requires `identity`, `alarms`, and access to the configured web origin; stable idempotency keys map each local session to one guide, screenshot checkpoints resume partial uploads, and stale cloud revisions require explicit local changes.    |
 
 ## Known Risks
 
@@ -602,6 +605,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-08-03 | S08     | Added independent guide contracts and a responsive fixture-backed editor with navigation, step ordering, selected-step editing, media annotations, and explicit UI states.             | 66 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser checks passed.                                                                             | This commit |
 | 2026-08-03 | S09     | Added transactional guide and captured-session persistence, authenticated validated APIs, restart-safe local storage, production PostgreSQL/S3 adapters, and signed image flows.       | 72 tests, migration check, typecheck, lint, production builds, and dependency audit passed; restart, authorization, rollback, and object consistency covered.                         | This commit |
 | 2026-08-03 | S10     | Replaced transitional bearer identities with Better Auth users and sessions, protected editor and auth flows, owner/member workspaces, and workspace-scoped persistence authorization. | 73 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser flows passed; expiry, revocation, role enforcement, and cross-workspace isolation covered. | This commit |
+| 2026-08-03 | S11     | Added extension-safe browser authorization, a persistent resumable upload queue, idempotent session-to-guide mapping, partial screenshot sync, and mapped-guide handoff.               | 79 tests, typecheck, lint, production builds, manifest inspection, and desktop/mobile browser checks passed; retry, conflict, expiry, and one-time grant behavior covered.            | This commit |
 
 ## Scope Changes
 

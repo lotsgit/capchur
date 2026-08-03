@@ -1,11 +1,13 @@
 import { createAuth, WorkspaceAuthenticator } from "./auth";
-import { PersistenceApi } from "./api";
+import { ExtensionApi, PersistenceApi } from "./api";
 import { getDatabase } from "./db";
+import { ExtensionAuthorizationService } from "./extension-auth";
 import { createEnvironmentObjectStorage } from "./object-storage";
 import { createPersistenceRepository } from "./persistence-repository";
 
 const globalRuntime = globalThis as typeof globalThis & {
   capchurAuth?: Promise<ReturnType<typeof createAuth>>;
+  capchurExtensionApi?: Promise<ExtensionApi>;
   capchurPersistenceApi?: Promise<PersistenceApi>;
 };
 
@@ -16,9 +18,27 @@ export function getAuth(): Promise<ReturnType<typeof createAuth>> {
 
 export async function getWorkspaceAuthenticator(): Promise<WorkspaceAuthenticator> {
   const [database, auth] = await Promise.all([getDatabase(), getAuth()]);
+  const extensionAuthorization = new ExtensionAuthorizationService(database.database);
   return new WorkspaceAuthenticator({
     getSession: (headers) => auth.api.getSession({ headers }),
-  }, database.database);
+  }, database.database, extensionAuthorization);
+}
+
+async function createExtensionApi(): Promise<ExtensionApi> {
+  const database = await getDatabase();
+  const authorization = new ExtensionAuthorizationService(database.database);
+  return new ExtensionApi(
+    new WorkspaceAuthenticator({
+      getSession: async (headers) => (await getAuth()).api.getSession({ headers }),
+    }, database.database, authorization),
+    authorization,
+    createPersistenceRepository(database),
+  );
+}
+
+export function getExtensionApi(): Promise<ExtensionApi> {
+  globalRuntime.capchurExtensionApi ??= createExtensionApi();
+  return globalRuntime.capchurExtensionApi;
 }
 
 async function createPersistenceApi(): Promise<PersistenceApi> {

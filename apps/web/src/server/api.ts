@@ -1,12 +1,17 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  ExtensionAuthorizationExchangeSchema,
   GuideWriteSchema,
   ImageUploadIntentSchema,
   RecordingSessionWriteSchema,
+  SessionImageAttachmentSchema,
+  SessionSyncRequestSchema,
+  SessionSyncResponseSchema,
 } from "@capchur/contracts";
 
 import type { WorkspaceAuthenticator, WorkspacePrincipal } from "./auth";
+import type { ExtensionAuthorizationService } from "./extension-auth";
 import type { ObjectStorage } from "./object-storage";
 import type { PersistenceRepository, StoredObjectRecord } from "./persistence-repository";
 
@@ -152,5 +157,99 @@ export class PersistenceApi {
     return record
       ? Response.json(await this.storage.issueDownload(record))
       : jsonError(404, "NOT_FOUND", "Image not found");
+  }
+
+  async privateImage(request: Request): Promise<Response> {
+    const authorization = await this.authorize(request);
+    if (authorization instanceof Response) return authorization;
+    const objectKey = new URL(request.url).searchParams.get("objectKey");
+    if (!objectKey) return jsonError(400, "INVALID_REQUEST", "Object key is required");
+    const record = await this.repository.getObject(authorization.workspaceId, objectKey);
+    if (!record) return jsonError(404, "NOT_FOUND", "Image not found");
+    const signed = await this.storage.issueDownload(record);
+    return fetch(new URL(signed.downloadUrl, request.url));
+  }
+}
+
+export class ExtensionApi {
+  constructor(
+    private readonly authenticator: WorkspaceAuthenticator,
+    private readonly authorization: ExtensionAuthorizationService,
+    private readonly repository: PersistenceRepository,
+    private readonly now: () => number = Date.now,
+    private readonly createId: () => string = randomUUID,
+  ) {}
+
+  async authorize(request: Request): Promise<Response> {
+    if (request.method !== "POST") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    const principal = await this.authenticator.authenticate(request);
+    if (!principal) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    if (principal.role !== "owner") {
+      return jsonError(403, "FORBIDDEN", "Workspace owner access is required");
+    }
+    return Response.json({ code: await this.authorization.issueCode(principal) }, { status: 201 });
+  }
+
+  async exchange(request: Request): Promise<Response> {
+    if (request.method !== "POST") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    const parsed = ExtensionAuthorizationExchangeSchema.safeParse(await parseJson(request));
+    if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Authorization code is invalid");
+    const credential = await this.authorization.exchangeCode(parsed.data.code);
+    return credential
+      ? Response.json(credential)
+      : jsonError(401, "INVALID_GRANT", "Authorization code is invalid or expired");
+  }
+
+  async syncSession(request: Request, sessionId: string): Promise<Response> {
+    if (request.method !== "PUT") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    const principal = await this.authenticator.authenticate(request);
+    if (!principal) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    if (principal.role !== "owner") {
+      return jsonError(403, "FORBIDDEN", "Workspace owner access is required");
+    }
+    const parsed = SessionSyncRequestSchema.safeParse(await parseJson(request));
+    if (!parsed.success || parsed.data.session.id !== sessionId) {
+      return jsonError(400, "INVALID_REQUEST", "Session sync data is invalid");
+    }
+
+    try {
+      const result = await this.repository.syncSession(
+        principal.workspaceId,
+        parsed.data.session,
+        parsed.data.idempotencyKey,
+        this.createId(),
+        this.now(),
+      );
+      if (result.status === "conflict") {
+        return jsonError(409, "SYNC_CONFLICT", "A newer session revision is already synced");
+      }
+      return Response.json(SessionSyncResponseSchema.parse({
+        guideId: result.guide.id,
+        sessionId,
+        syncedAt: result.syncedAt,
+      }));
+    } catch {
+      return jsonError(500, "SYNC_FAILED", "The session could not be synced");
+    }
+  }
+
+  async attachImage(request: Request, sessionId: string): Promise<Response> {
+    if (request.method !== "POST") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    const principal = await this.authenticator.authenticate(request);
+    if (!principal) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    if (principal.role !== "owner") {
+      return jsonError(403, "FORBIDDEN", "Workspace owner access is required");
+    }
+    const parsed = SessionImageAttachmentSchema.safeParse(await parseJson(request));
+    if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Image attachment is invalid");
+    const attached = await this.repository.attachSessionImage(
+      principal.workspaceId,
+      sessionId,
+      parsed.data.stepId,
+      parsed.data.objectKey,
+    );
+    return attached
+      ? new Response(null, { status: 204 })
+      : jsonError(404, "NOT_FOUND", "Synchronized guide image was not found");
   }
 }

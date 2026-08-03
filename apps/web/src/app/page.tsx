@@ -3,7 +3,11 @@ import { getAuth, getWorkspaceAuthenticator } from "@/server/runtime";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ guideId?: string }>;
+}) {
   const requestHeaders = await headers();
   const auth = await getAuth();
   const session = await auth.api.getSession({ headers: requestHeaders });
@@ -14,5 +18,8 @@ export default async function Home() {
   );
   if (!principal) redirect("/sign-in?error=workspace");
 
-  return <GuideEditor identity={{ name: session.user.name, role: principal.role }} />;
+  return <GuideEditor
+    guideId={(await searchParams).guideId}
+    identity={{ name: session.user.name, role: principal.role }}
+  />;
 }

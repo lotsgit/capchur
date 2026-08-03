@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import type {
   CapturedStep,
+  ExtensionSyncStatus,
   RecordingRequestMessage,
   RecordingSession,
+  SyncRequestMessage,
 } from '../../utils/contracts';
 import { createScreenshotStorage } from '../../utils/screenshot-storage';
 import {
@@ -20,9 +22,18 @@ import {
   retryStepScreenshot,
   updateStepDescription,
 } from './review-client';
+import {
+  authorizeSync,
+  enqueueSessionSync,
+  loadSyncStatus,
+  openSyncedGuide,
+  retrySessionSync,
+} from './sync-client';
 
 const screenshotStorage = createScreenshotStorage();
 const sendMessage = (message: RecordingRequestMessage): Promise<unknown> =>
+  browser.runtime.sendMessage(message);
+const sendSyncMessage = (message: SyncRequestMessage): Promise<unknown> =>
   browser.runtime.sendMessage(message);
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -34,6 +45,7 @@ export default function App() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<ExtensionSyncStatus | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +65,14 @@ export default function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadSyncStatus(sendSyncMessage)
+      .then((status) => { if (active) setSyncStatus(status); })
+      .catch((error: unknown) => { if (active) setErrorMessage(toErrorMessage(error)); });
+    return () => { active = false; };
   }, []);
 
   async function runAction(
@@ -92,6 +112,25 @@ export default function App() {
         JSON.stringify(archive, null, 2),
       );
       setSuccessMessage('Session archive exported.');
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function runSyncAction(
+    action: string,
+    operation: () => Promise<ExtensionSyncStatus>,
+  ) {
+    setBusyAction(action);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const status = await operation();
+      setSyncStatus(status);
+      if (status.state === 'synced') setSuccessMessage('Session synced to your workspace.');
+      else if (status.message) setSuccessMessage(status.message);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -148,6 +187,51 @@ export default function App() {
           </div>
 
           <div className="toolbar" aria-busy={isBusy}>
+            {syncStatus?.state === 'disconnected' && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => void runSyncAction('connect', () => authorizeSync(sendSyncMessage))}
+              >
+                {busyAction === 'connect' ? 'Connecting...' : 'Connect account'}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={!session || isBusy}
+              onClick={() => session && void runSyncAction(
+                'sync',
+                () => enqueueSessionSync(session, sendSyncMessage),
+              )}
+            >
+              {busyAction === 'sync' ? 'Syncing...' : 'Sync session'}
+            </button>
+            {syncStatus?.state === 'retrying' && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => void runSyncAction('retry-sync', () => retrySessionSync(sendSyncMessage))}
+              >
+                Retry sync
+              </button>
+            )}
+            {syncStatus?.guideId && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  const guideId = syncStatus.guideId;
+                  if (guideId) {
+                    void runSyncAction(
+                      'open-guide',
+                      () => openSyncedGuide(guideId, sendSyncMessage),
+                    );
+                  }
+                }}
+              >
+                Open guide
+              </button>
+            )}
             <button type="button" disabled={!session || isBusy} onClick={() => void exportSession()}>
               {busyAction === 'export' ? 'Exporting...' : 'Export JSON'}
             </button>
@@ -203,6 +287,11 @@ export default function App() {
       <div className="review-content">
         {errorMessage && <div className="notice" role="alert">{errorMessage}</div>}
         {successMessage && <div className="notice notice--success" role="status">{successMessage}</div>}
+        {syncStatus?.state === 'conflict' && (
+          <div className="notice" role="alert">
+            {syncStatus.message ?? 'A newer cloud revision exists. Edit the local session before retrying.'}
+          </div>
+        )}
 
         {loadState === 'loading' && (
           <div className="loading-state" role="status">Loading local session...</div>

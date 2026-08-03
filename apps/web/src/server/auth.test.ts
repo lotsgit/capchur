@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuth } from "./auth";
 import type { DatabaseHandle } from "./db";
 import * as schema from "./db/schema";
+import { ExtensionAuthorizationService } from "./extension-auth";
 
 function authRequest(path: string, body?: unknown, cookie?: string): Request {
   return new Request(`http://localhost${path}`, {
@@ -35,7 +36,11 @@ describe("authentication", () => {
 
   beforeAll(async () => {
     client = new PGlite();
-    for (const migrationName of ["0000_persistence.sql", "0001_pale_machine_man.sql"]) {
+    for (const migrationName of [
+      "0000_persistence.sql",
+      "0001_pale_machine_man.sql",
+      "0002_fair_puff_adder.sql",
+    ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));
     }
@@ -87,4 +92,21 @@ describe("authentication", () => {
     const expired = await auth.handler(authRequest("/api/auth/get-session", undefined, secondCookie));
     expect(await expired.json()).toBeNull();
   }, 60_000);
+
+  it("consumes authorization codes once and expires hashed extension tokens", async () => {
+    let currentTime = 1_000;
+    const service = new ExtensionAuthorizationService(handle.database, () => currentTime);
+    const principal = { userId: "extension-user", workspaceId: "workspace-a", role: "owner" as const };
+    const code = await service.issueCode(principal);
+    const credential = await service.exchangeCode(code);
+
+    expect(credential?.accessToken).toHaveLength(43);
+    expect(await service.exchangeCode(code)).toBeNull();
+    expect(await service.authenticateToken(credential?.accessToken ?? "")).toEqual(principal);
+    const stored = await handle.database.select().from(schema.extensionAccessTokens);
+    expect(stored[0]?.tokenHash).not.toBe(credential?.accessToken);
+
+    currentTime = credential?.expiresAt ?? currentTime;
+    expect(await service.authenticateToken(credential?.accessToken ?? "")).toBeNull();
+  });
 });

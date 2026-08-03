@@ -193,6 +193,49 @@ export const RecordingSessionWriteSchema = z.strictObject({
     session: RecordingSessionSchema,
 });
 
+export const ExtensionAuthorizationExchangeSchema = z.strictObject({
+    code: z.string().trim().min(32).max(512),
+});
+
+export const ExtensionAuthorizationSchema = z.strictObject({
+    accessToken: z.string().trim().min(32).max(512),
+    expiresAt: TimestampSchema,
+});
+
+export const SessionSyncRequestSchema = z.strictObject({
+    idempotencyKey: z.string().uuid(),
+    session: RecordingSessionSchema,
+});
+
+export const SessionSyncResponseSchema = z.strictObject({
+    guideId: IdSchema,
+    sessionId: IdSchema,
+    syncedAt: TimestampSchema,
+});
+
+export const SessionImageAttachmentSchema = z.strictObject({
+    stepId: IdSchema,
+    objectKey: NonEmptyStringSchema,
+});
+
+export const ExtensionSyncStateSchema = z.enum([
+    "disconnected",
+    "pending",
+    "syncing",
+    "retrying",
+    "conflict",
+    "synced",
+]);
+
+export const ExtensionSyncStatusSchema = z.strictObject({
+    state: ExtensionSyncStateSchema,
+    sessionId: IdSchema.nullable(),
+    guideId: IdSchema.nullable(),
+    attempts: z.number().int().nonnegative(),
+    nextAttemptAt: TimestampSchema.nullable(),
+    message: z.string().trim().max(2_000).nullable(),
+});
+
 export const ImageUploadIntentSchema = z.strictObject({
     guideId: IdSchema,
     stepId: IdSchema,
@@ -321,10 +364,44 @@ export const RecordingEventMessageSchema = z.discriminatedUnion("type", [
     }),
 ]);
 
+export const SyncRequestMessageSchema = z.discriminatedUnion("type", [
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("sync.authorize"),
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("sync.enqueue"),
+        session: RecordingSessionSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("sync.retry"),
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("sync.status"),
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("sync.open"),
+        guideId: IdSchema,
+    }),
+]);
+
+export const SyncResponseMessageSchema = z.strictObject({
+    ...MessageBaseShape,
+    type: z.literal("sync.response"),
+    ok: z.boolean(),
+    status: ExtensionSyncStatusSchema,
+});
+
 export const ExtensionMessageSchema = z.union([
     RecordingRequestMessageSchema,
     RecordingResponseMessageSchema,
     RecordingEventMessageSchema,
+    SyncRequestMessageSchema,
+    SyncResponseMessageSchema,
 ]);
 
 export type CaptureActionType = z.infer<typeof CaptureActionTypeSchema>;
@@ -338,6 +415,13 @@ export type ClickCapture = z.infer<typeof ClickCaptureSchema>;
 export type RecordingStatus = z.infer<typeof RecordingStatusSchema>;
 export type RecordingSession = z.infer<typeof RecordingSessionSchema>;
 export type LocalSessionArchive = z.infer<typeof LocalSessionArchiveSchema>;
+export type ExtensionAuthorizationExchange = z.infer<typeof ExtensionAuthorizationExchangeSchema>;
+export type ExtensionAuthorization = z.infer<typeof ExtensionAuthorizationSchema>;
+export type SessionSyncRequest = z.infer<typeof SessionSyncRequestSchema>;
+export type SessionSyncResponse = z.infer<typeof SessionSyncResponseSchema>;
+export type SessionImageAttachment = z.infer<typeof SessionImageAttachmentSchema>;
+export type ExtensionSyncState = z.infer<typeof ExtensionSyncStateSchema>;
+export type ExtensionSyncStatus = z.infer<typeof ExtensionSyncStatusSchema>;
 export type GuideMedia = z.infer<typeof GuideMediaSchema>;
 export type GuideAnnotation = z.infer<typeof GuideAnnotationSchema>;
 export type GuideStep = z.infer<typeof GuideStepSchema>;
@@ -356,4 +440,6 @@ export type RecordingResponseMessage = z.infer<
 export type RecordingEventMessage = z.infer<
     typeof RecordingEventMessageSchema
 >;
+export type SyncRequestMessage = z.infer<typeof SyncRequestMessageSchema>;
+export type SyncResponseMessage = z.infer<typeof SyncResponseMessageSchema>;
 export type ExtensionMessage = z.infer<typeof ExtensionMessageSchema>;

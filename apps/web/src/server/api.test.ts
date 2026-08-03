@@ -10,9 +10,10 @@ import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { WorkspaceAuthenticator, type AuthSession } from "./auth";
-import { PersistenceApi } from "./api";
+import { ExtensionApi, PersistenceApi } from "./api";
 import type { DatabaseHandle } from "./db";
 import * as schema from "./db/schema";
+import { ExtensionAuthorizationService } from "./extension-auth";
 import { LocalObjectStorage } from "./object-storage";
 import { createPersistenceRepository } from "./persistence-repository";
 
@@ -29,6 +30,8 @@ const guideId = "0198f1d0-c184-7000-8000-000000000301";
 const objectId = "0198f1d0-c184-7000-8000-000000000302";
 const stepId = "0198f1d0-c184-7000-8000-000000000303";
 const sessionId = "0198f1d0-c184-7000-8000-000000000304";
+const syncGuideId = "0198f1d0-c184-7000-8000-000000000305";
+const idempotencyKey = "0198f1d0-c184-7000-8000-000000000306";
 
 const guideWrite = {
   title: "Persist a guide",
@@ -70,11 +73,16 @@ describe("persistence API", () => {
   let client: PGlite;
   let dataDirectory: string;
   let api: PersistenceApi;
+  let extensionApi: ExtensionApi;
   let storage: LocalObjectStorage;
 
   beforeAll(async () => {
     client = new PGlite();
-    for (const migrationName of ["0000_persistence.sql", "0001_pale_machine_man.sql"]) {
+    for (const migrationName of [
+      "0000_persistence.sql",
+      "0001_pale_machine_man.sql",
+      "0002_fair_puff_adder.sql",
+    ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));
     }
@@ -111,19 +119,28 @@ describe("persistence API", () => {
         session: { id: "expired-session", expiresAt: new Date(0) },
       }],
     ]);
+    const authenticator = new WorkspaceAuthenticator({
+      getSession: async (headers) => {
+        const authorization = headers.get("authorization");
+        return authorization?.startsWith("Bearer ")
+          ? sessions.get(authorization.slice("Bearer ".length)) ?? null
+          : null;
+      },
+    }, handle.database);
+    const repository = createPersistenceRepository(handle);
     api = new PersistenceApi(
-      new WorkspaceAuthenticator({
-        getSession: async (headers) => {
-          const authorization = headers.get("authorization");
-          return authorization?.startsWith("Bearer ")
-            ? sessions.get(authorization.slice("Bearer ".length)) ?? null
-            : null;
-        },
-      }, handle.database),
-      createPersistenceRepository(handle),
+      authenticator,
+      repository,
       storage,
       () => 1_000,
       () => ids.shift() ?? objectId,
+    );
+    extensionApi = new ExtensionApi(
+      authenticator,
+      new ExtensionAuthorizationService(handle.database),
+      repository,
+      () => 2_000,
+      () => syncGuideId,
     );
   }, 60_000);
 
@@ -237,5 +254,32 @@ describe("persistence API", () => {
       guideId,
     )).status).toBe(204);
     expect((await storage.serveDownload(downloadToken)).status).toBe(404);
+  });
+
+  it("requires authentication and returns one guide for repeated sync delivery", async () => {
+    const session = {
+      id: sessionId,
+      status: "stopped" as const,
+      startedAt: 100,
+      updatedAt: 300,
+      steps: [],
+    };
+    const body = { idempotencyKey, session };
+    expect((await extensionApi.syncSession(
+      request(`/api/sync/sessions/${sessionId}`, "PUT", undefined, body),
+      sessionId,
+    )).status).toBe(401);
+
+    const first = await extensionApi.syncSession(
+      request(`/api/sync/sessions/${sessionId}`, "PUT", ownerToken, body),
+      sessionId,
+    );
+    const repeated = await extensionApi.syncSession(
+      request(`/api/sync/sessions/${sessionId}`, "PUT", ownerToken, body),
+      sessionId,
+    );
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ guideId: syncGuideId, sessionId });
+    expect(await repeated.json()).toMatchObject({ guideId: syncGuideId, sessionId });
   });
 });

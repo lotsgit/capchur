@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { startTransition, useEffect, useState } from "react";
 
-import type { Guide, GuideStep } from "@/lib/contracts";
+import { GuideSchema, type Guide, type GuideStep } from "@/lib/contracts";
 import {
   moveGuideStep, updateGuideDetails, updateGuideStep, type StepDirection,
 } from "@/lib/guide-editor-state";
@@ -18,11 +18,20 @@ import { AccountControl } from "@/app/account-control";
 type LoadState = "loading" | "ready" | "error";
 type GuideLoader = () => Promise<Guide>;
 
+async function loadRequestedGuide(guideId: string | undefined, fixtureLoader: GuideLoader) {
+  if (!guideId) return fixtureLoader();
+  const response = await fetch(`/api/guides/${encodeURIComponent(guideId)}`);
+  if (!response.ok) throw new Error("Guide could not be loaded");
+  return GuideSchema.parse(await response.json());
+}
+
 export function GuideEditor({
   fixtureLoader = loadGuideFixture,
+  guideId,
   identity,
 }: {
   fixtureLoader?: GuideLoader;
+  guideId?: string;
   identity?: { name: string; role: "owner" | "member" };
 }) {
   const [guide, setGuide] = useState<Guide | null>(null);
@@ -40,19 +49,19 @@ export function GuideEditor({
     });
   }
 
-  function loadFixture() {
+  function reloadGuide() {
     setLoadState("loading");
     setSaveMessage(null);
-    fixtureLoader().then(acceptGuide).catch(() => setLoadState("error"));
+    loadRequestedGuide(guideId, fixtureLoader).then(acceptGuide).catch(() => setLoadState("error"));
   }
 
   useEffect(() => {
     let active = true;
-    fixtureLoader()
+    loadRequestedGuide(guideId, fixtureLoader)
       .then((loadedGuide) => { if (active) acceptGuide(loadedGuide); })
       .catch(() => { if (active) setLoadState("error"); });
     return () => { active = false; };
-  }, [fixtureLoader]);
+  }, [fixtureLoader, guideId]);
 
   function commit(nextGuide: Guide) {
     if (nextGuide === guide) return;
@@ -81,7 +90,7 @@ export function GuideEditor({
         <div className="state-mark state-mark--error" aria-hidden="true">!</div>
         <h1>Guide unavailable</h1>
         <p>The local fixture could not be validated. Nothing was changed.</p>
-        <button className="primary-button" type="button" onClick={loadFixture}><RotateCcw size={16} /> Retry</button>
+        <button className="primary-button" type="button" onClick={reloadGuide}><RotateCcw size={16} /> Retry</button>
       </main>
     );
   }
@@ -178,7 +187,7 @@ function MediaCanvas({ step }: { step: GuideStep }) {
     <section className="media-section" aria-label="Step media">
       <div className="media-label"><span>Screenshot</span><span>{step.media.width} × {step.media.height}</span></div>
       <div className="media-canvas" style={{ aspectRatio: `${step.media.width} / ${step.media.height}` }}>
-        <Image src={step.media.source} alt={step.media.alt} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 70vw, 56vw" priority />
+        <Image src={step.media.source} alt={step.media.alt} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 70vw, 56vw" priority unoptimized={step.media.source.startsWith("/api/images/private")} />
         {annotation && !annotation.hidden && (
           <span className="media-highlight" aria-label="Highlighted target" style={{ left: `${(annotation.rect.x / step.media.width) * 100}%`, top: `${(annotation.rect.y / step.media.height) * 100}%`, width: `${(annotation.rect.width / step.media.width) * 100}%`, height: `${(annotation.rect.height / step.media.height) * 100}%` }} />
         )}
