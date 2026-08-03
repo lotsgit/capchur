@@ -174,6 +174,19 @@ function App() {
       )}
 
       <div className="actions" aria-busy={isBusy}>
+        {session && (
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={isBusy}
+            onClick={() => void browser.tabs.create({
+              url: browser.runtime.getURL('/review.html'),
+            })}
+          >
+            Review session
+          </button>
+        )}
+
         {!session && (
           <button
             className="button button--primary"

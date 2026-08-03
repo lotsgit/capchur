@@ -5,6 +5,7 @@ import {
     CapturedStepSchema,
     ClickCaptureSchema,
     ExtensionMessageSchema,
+    LocalSessionArchiveSchema,
     RecordingRequestMessageSchema,
     RecordingResponseMessageSchema,
     RecordingSessionSchema,
@@ -192,6 +193,44 @@ describe("extension message contracts", () => {
                 ...validClickCapture.highlight,
                 coordinateSpace: "screenshot-pixels",
             },
+        }).success).toBe(false);
+    });
+});
+
+describe("local session review contracts", () => {
+    it("accepts review mutations and rejects incomplete reorder commands", () => {
+        expect(RecordingRequestMessageSchema.safeParse({
+            version: CONTRACT_VERSION,
+            type: "recording.step.update",
+            requestId,
+            sessionId,
+            stepId,
+            description: "Click Save changes",
+        }).success).toBe(true);
+
+        expect(RecordingRequestMessageSchema.safeParse({
+            version: CONTRACT_VERSION,
+            type: "recording.steps.reorder",
+            requestId,
+            sessionId,
+        }).success).toBe(false);
+    });
+
+    it("validates portable archives and their screenshot payloads", () => {
+        const archive = {
+            version: CONTRACT_VERSION,
+            exportedAt: 300,
+            session: validSession,
+            screenshots: [{
+                storageKey: `screenshots/${sessionId}/${stepId}`,
+                dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+            }],
+        };
+
+        expect(LocalSessionArchiveSchema.safeParse(archive).success).toBe(true);
+        expect(LocalSessionArchiveSchema.safeParse({
+            ...archive,
+            screenshots: [{ storageKey: "image", dataUrl: "https://example.com/image.png" }],
         }).success).toBe(false);
     });
 });

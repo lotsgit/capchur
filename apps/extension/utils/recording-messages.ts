@@ -15,6 +15,7 @@ import {
 import type { RecordingStorage } from "./recording-storage";
 import type {
     AttachScreenshot,
+    ScreenshotAttachment,
     ScreenshotSource,
 } from "./screenshot-capture";
 
@@ -22,6 +23,8 @@ interface RecordingMessageHandlerOptions {
     now?: () => number;
     createId?: () => string;
     attachScreenshot?: AttachScreenshot;
+    retryScreenshot?: (step: CapturedStep) => Promise<ScreenshotAttachment>;
+    deleteScreenshot?: (storageKey: string) => Promise<void>;
     clearScreenshots?: () => Promise<void>;
 }
 
@@ -121,6 +124,104 @@ async function handleRecordingMessage(
             }
         }
 
+        if (message.type === "recording.import") {
+            await storage.save(message.session);
+            return successResponse(message.requestId, message.session);
+        }
+
+        if (
+            message.type === "recording.step.update"
+            || message.type === "recording.step.delete"
+            || message.type === "recording.steps.reorder"
+            || message.type === "recording.screenshot.retry"
+        ) {
+            if (!currentSession || currentSession.id !== message.sessionId) {
+                return errorResponse(
+                    message.requestId,
+                    "SESSION_NOT_FOUND",
+                    "The recording session was not found.",
+                );
+            }
+
+            if (message.type === "recording.steps.reorder") {
+                const stepsById = new Map(currentSession.steps.map((step) => [step.id, step]));
+                const hasExactStepSet = message.stepIds.length === currentSession.steps.length
+                    && new Set(message.stepIds).size === currentSession.steps.length
+                    && message.stepIds.every((stepId) => stepsById.has(stepId));
+                if (!hasExactStepSet) {
+                    return errorResponse(
+                        message.requestId,
+                        "INVALID_MESSAGE",
+                        "The reordered steps must contain every session step exactly once.",
+                    );
+                }
+
+                const session = {
+                    ...currentSession,
+                    updatedAt: now(),
+                    steps: message.stepIds.map((stepId, sequence) => ({
+                        ...stepsById.get(stepId)!,
+                        sequence,
+                    })),
+                };
+                await storage.save(session);
+                return successResponse(message.requestId, session);
+            }
+
+            const stepIndex = currentSession.steps.findIndex((step) => step.id === message.stepId);
+            const currentStep = currentSession.steps[stepIndex];
+            if (!currentStep) {
+                return errorResponse(
+                    message.requestId,
+                    "STEP_NOT_FOUND",
+                    "The captured step was not found.",
+                );
+            }
+
+            if (message.type === "recording.step.update") {
+                const steps = [...currentSession.steps];
+                steps[stepIndex] = { ...currentStep, description: message.description };
+                const session = { ...currentSession, updatedAt: now(), steps };
+                await storage.save(session);
+                return successResponse(message.requestId, session);
+            }
+
+            if (message.type === "recording.step.delete") {
+                const steps = currentSession.steps
+                    .filter((step) => step.id !== message.stepId)
+                    .map((step, sequence) => ({ ...step, sequence }));
+                const session = { ...currentSession, updatedAt: now(), steps };
+                await storage.save(session);
+                if (currentStep.screenshot?.storageKey) {
+                    await options.deleteScreenshot?.(currentStep.screenshot.storageKey);
+                }
+                return successResponse(message.requestId, session);
+            }
+
+            if (!options.retryScreenshot) {
+                return errorResponse(
+                    message.requestId,
+                    "SCREENSHOT_UNAVAILABLE",
+                    "Screenshot capture is unavailable.",
+                );
+            }
+
+            try {
+                const attachment = await options.retryScreenshot(currentStep);
+                const steps = [...currentSession.steps];
+                steps[stepIndex] = { ...currentStep, ...attachment };
+                const session = { ...currentSession, updatedAt: now(), steps };
+                await storage.save(session);
+                return successResponse(message.requestId, session);
+            } catch (error) {
+                return errorResponse(
+                    message.requestId,
+                    "SCREENSHOT_UNAVAILABLE",
+                    error instanceof Error ? error.message : "The screenshot could not be captured.",
+                );
+            }
+        }
+
         const transition = transitionRecordingState(
             currentSession,
             toStateCommand(message),
@@ -160,6 +261,12 @@ function toStateCommand(message: RecordingRequestMessage): RecordingStateCommand
             return { type: "clear", sessionId: message.sessionId };
         case "recording.status":
             throw new Error("Status messages do not transition recording state.");
+        case "recording.step.update":
+        case "recording.step.delete":
+        case "recording.steps.reorder":
+        case "recording.import":
+        case "recording.screenshot.retry":
+            throw new Error("Review messages do not transition recording state.");
         case "capture.click":
             throw new Error("Capture messages do not transition recording state.");
     }
@@ -180,7 +287,8 @@ function successResponse(
 
 function errorResponse(
     requestId: string,
-    code: "INVALID_MESSAGE" | "SESSION_NOT_FOUND" | "STORAGE_ERROR",
+    code: "INVALID_MESSAGE" | "SESSION_NOT_FOUND" | "STEP_NOT_FOUND"
+        | "SCREENSHOT_UNAVAILABLE" | "STORAGE_ERROR",
     message: string,
 ): RecordingResponseMessage {
     return {

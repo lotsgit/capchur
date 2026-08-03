@@ -322,4 +322,120 @@ describe("recording service-worker messages", () => {
             response.ok ? response.session : null,
         );
     });
+
+    it("renames, reorders, and deletes persisted steps", async () => {
+        const storageArea = new FakeStorageArea();
+        const ids = [sessionId, stepIds[0], stepIds[1]];
+        const deletedStorageKeys: string[] = [];
+        const handler = createRecordingMessageHandler(createRecordingStorage(storageArea), {
+            now: () => 400,
+            createId: () => ids.shift() ?? sessionId,
+            attachScreenshot: async (step) => ({
+                screenshot: {
+                    id: step.id,
+                    mimeType: "image/png",
+                    width: 1280,
+                    height: 720,
+                    capturedAt: 300,
+                    storageKey: `screenshots/${sessionId}/${step.id}`,
+                },
+                highlight: step.highlight,
+                viewport: step.viewport,
+            }),
+            deleteScreenshot: async (storageKey) => {
+                deletedStorageKeys.push(storageKey);
+            },
+        });
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+        for (const stepId of stepIds.slice(0, 2)) {
+            await handler({
+                version: CONTRACT_VERSION,
+                type: "capture.click",
+                requestId: stepId,
+                capture: clickCapture,
+            }, { url: clickCapture.url, tabId: 4, windowId: 2 });
+        }
+
+        const renamed = await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.step.update",
+            requestId,
+            sessionId,
+            stepId: stepIds[0],
+            description: "Click Save changes",
+        });
+        expect(renamed.ok && renamed.session?.steps[0]?.description)
+            .toBe("Click Save changes");
+
+        const reordered = await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.steps.reorder",
+            requestId,
+            sessionId,
+            stepIds: [stepIds[1], stepIds[0]],
+        });
+        expect(reordered).toMatchObject({
+            ok: true,
+            session: { steps: [{ id: stepIds[1], sequence: 0 }, { id: stepIds[0], sequence: 1 }] },
+        });
+
+        const deleted = await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.step.delete",
+            requestId,
+            sessionId,
+            stepId: stepIds[1],
+        });
+        expect(deleted).toMatchObject({
+            ok: true,
+            session: { steps: [{ id: stepIds[0], sequence: 0 }] },
+        });
+        expect(deletedStorageKeys).toEqual([`screenshots/${sessionId}/${stepIds[1]}`]);
+    });
+
+    it("imports a validated session and reports retry screenshot failures", async () => {
+        const storageArea = new FakeStorageArea();
+        const importedSession = {
+            id: sessionId,
+            status: "stopped" as const,
+            startedAt: 100,
+            updatedAt: 200,
+            steps: [{
+                id: stepIds[0],
+                sessionId,
+                sequence: 0,
+                action: "click" as const,
+                ...clickCapture,
+                screenshot: null,
+            }],
+        };
+        const handler = createRecordingMessageHandler(createRecordingStorage(storageArea), {
+            retryScreenshot: async () => {
+                throw new Error("Open the source page in a browser tab before retrying.");
+            },
+        });
+
+        const imported = await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.import",
+            requestId,
+            session: importedSession,
+        });
+        expect(imported).toMatchObject({ ok: true, session: importedSession });
+
+        const retried = await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.screenshot.retry",
+            requestId,
+            sessionId,
+            stepId: stepIds[0],
+        });
+        expect(retried).toMatchObject({
+            ok: false,
+            error: {
+                code: "SCREENSHOT_UNAVAILABLE",
+                message: "Open the source page in a browser tab before retrying.",
+            },
+        });
+    });
 });

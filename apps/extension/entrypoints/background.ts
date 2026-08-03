@@ -20,6 +20,31 @@ export default defineBackground(() => {
         createRecordingStorage(browser.storage.local),
         {
             attachScreenshot,
+            async retryScreenshot(step) {
+                const tabs = await browser.tabs.query({});
+                const sourceTab = tabs.find((tab) => tab.url === step.url && tab.id !== undefined);
+                if (sourceTab?.id === undefined || sourceTab.windowId === undefined) {
+                    throw new Error("Open the source page in a browser tab before retrying.");
+                }
+
+                const previouslyActiveTab = tabs.find((tab) =>
+                    tab.active && tab.windowId === sourceTab.windowId,
+                );
+                try {
+                    if (!sourceTab.active) {
+                        await browser.tabs.update(sourceTab.id, { active: true });
+                    }
+                    return await attachScreenshot(step, {
+                        tabId: sourceTab.id,
+                        windowId: sourceTab.windowId,
+                    });
+                } finally {
+                    if (previouslyActiveTab?.id !== undefined && previouslyActiveTab.id !== sourceTab.id) {
+                        await browser.tabs.update(previouslyActiveTab.id, { active: true });
+                    }
+                }
+            },
+            deleteScreenshot: (storageKey) => screenshotStorage.delete(storageKey),
             clearScreenshots: () => screenshotStorage.clear(),
         },
     );

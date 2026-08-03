@@ -4,6 +4,8 @@ const SCREENSHOT_STORE = "screenshots";
 
 export interface ScreenshotStorage {
     save(storageKey: string, dataUrl: string): Promise<void>;
+    load(storageKey: string): Promise<Blob | null>;
+    delete(storageKey: string): Promise<void>;
     clear(): Promise<void>;
 }
 
@@ -21,6 +23,21 @@ export function createScreenshotStorage(): ScreenshotStorage {
             transaction.objectStore(SCREENSHOT_STORE).put(dataUrlToBlob(dataUrl), storageKey);
             await transactionComplete(transaction);
         },
+        async load(storageKey) {
+            const database = await getDatabase();
+            const transaction = database.transaction(SCREENSHOT_STORE, "readonly");
+            const value = await requestResult(
+                transaction.objectStore(SCREENSHOT_STORE).get(storageKey),
+            );
+            await transactionComplete(transaction);
+            return value instanceof Blob ? value : null;
+        },
+        async delete(storageKey) {
+            const database = await getDatabase();
+            const transaction = database.transaction(SCREENSHOT_STORE, "readwrite");
+            transaction.objectStore(SCREENSHOT_STORE).delete(storageKey);
+            await transactionComplete(transaction);
+        },
         async clear() {
             const database = await getDatabase();
             const transaction = database.transaction(SCREENSHOT_STORE, "readwrite");
@@ -28,6 +45,15 @@ export function createScreenshotStorage(): ScreenshotStorage {
             await transactionComplete(transaction);
         },
     };
+}
+
+function requestResult(request: IDBRequest): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(
+            request.error ?? new Error("Screenshot storage request failed."),
+        );
+    });
 }
 
 function openDatabase(): Promise<IDBDatabase> {

@@ -106,6 +106,16 @@ export const RecordingSessionSchema = z.strictObject({
     steps: z.array(CapturedStepSchema),
 });
 
+export const LocalSessionArchiveSchema = z.strictObject({
+    version: z.literal(CONTRACT_VERSION),
+    exportedAt: TimestampSchema,
+    session: RecordingSessionSchema,
+    screenshots: z.array(z.strictObject({
+        storageKey: NonEmptyStringSchema,
+        dataUrl: z.string().regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/),
+    })),
+});
+
 const MessageBaseShape = {
     version: z.literal(CONTRACT_VERSION),
     requestId: IdSchema,
@@ -137,6 +147,36 @@ export const RecordingRequestMessageSchema = z.discriminatedUnion("type", [
     }),
     z.strictObject({
         ...MessageBaseShape,
+        type: z.literal("recording.step.update"),
+        sessionId: IdSchema,
+        stepId: IdSchema,
+        description: NonEmptyStringSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("recording.step.delete"),
+        sessionId: IdSchema,
+        stepId: IdSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("recording.steps.reorder"),
+        sessionId: IdSchema,
+        stepIds: z.array(IdSchema),
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("recording.import"),
+        session: RecordingSessionSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("recording.screenshot.retry"),
+        sessionId: IdSchema,
+        stepId: IdSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
         type: z.literal("capture.click"),
         capture: ClickCaptureSchema,
     }),
@@ -160,6 +200,8 @@ export const RecordingResponseMessageSchema = z.discriminatedUnion("ok", [
             code: z.enum([
                 "INVALID_MESSAGE",
                 "SESSION_NOT_FOUND",
+                "STEP_NOT_FOUND",
+                "SCREENSHOT_UNAVAILABLE",
                 "STORAGE_ERROR",
                 "UNEXPECTED_ERROR",
             ]),
@@ -197,6 +239,7 @@ export type CapturedStep = z.infer<typeof CapturedStepSchema>;
 export type ClickCapture = z.infer<typeof ClickCaptureSchema>;
 export type RecordingStatus = z.infer<typeof RecordingStatusSchema>;
 export type RecordingSession = z.infer<typeof RecordingSessionSchema>;
+export type LocalSessionArchive = z.infer<typeof LocalSessionArchiveSchema>;
 export type RecordingRequestMessage = z.infer<
     typeof RecordingRequestMessageSchema
 >;
