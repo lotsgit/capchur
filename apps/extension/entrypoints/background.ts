@@ -6,5 +6,7 @@ export default defineBackground(() => {
         createRecordingStorage(browser.storage.local),
     );
 
-    browser.runtime.onMessage.addListener((message) => handleMessage(message));
+    browser.runtime.onMessage.addListener((message, sender) =>
+        handleMessage(message, sender.url ?? sender.tab?.url),
+    );
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
     CONTRACT_VERSION,
     CapturedStepSchema,
+    ClickCaptureSchema,
     ExtensionMessageSchema,
     RecordingRequestMessageSchema,
     RecordingResponseMessageSchema,
@@ -59,6 +60,16 @@ const validSession = {
     steps: [validStep],
 } as const;
 
+const validClickCapture = {
+    timestamp: validStep.timestamp,
+    url: validStep.url,
+    pageTitle: validStep.pageTitle,
+    description: validStep.description,
+    element: validStep.element,
+    viewport: validStep.viewport,
+    highlight: validStep.highlight,
+} as const;
+
 describe("domain contracts", () => {
     it("parses a complete recording session", () => {
         expect(RecordingSessionSchema.parse(validSession)).toEqual(validSession);
@@ -98,8 +109,9 @@ describe("extension message contracts", () => {
             },
             {
                 version: CONTRACT_VERSION,
-                type: "capture.step",
-                step: validStep,
+                type: "capture.click",
+                requestId,
+                capture: validClickCapture,
             },
         ];
 
@@ -145,6 +157,18 @@ describe("extension message contracts", () => {
                 type: "recording.start",
                 requestId,
                 token: "secret",
+            }).success,
+        ).toBe(false);
+    });
+
+    it("accepts only sanitized, unpersisted click capture fields", () => {
+        expect(ClickCaptureSchema.parse(validClickCapture)).toEqual(validClickCapture);
+        expect(
+            RecordingRequestMessageSchema.safeParse({
+                version: CONTRACT_VERSION,
+                type: "capture.click",
+                requestId,
+                capture: { ...validClickCapture, id: stepId, value: "secret" },
             }).success,
         ).toBe(false);
     });

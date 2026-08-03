@@ -6,6 +6,43 @@ import { createRecordingStorage, type ExtensionStorageArea } from "./recording-s
 
 const requestId = "0198f1d0-c184-7000-8000-000000000001";
 const sessionId = "0198f1d0-c184-7000-8000-000000000002";
+const stepIds = Array.from(
+    { length: 6 },
+    (_, index) => `0198f1d0-c184-7000-8000-00000000001${index}`,
+);
+
+const clickCapture = {
+    timestamp: 200,
+    url: "https://example.com/settings",
+    pageTitle: "Settings",
+    description: "Click the Save button",
+    element: {
+        tagName: "button",
+        accessibleName: "Save",
+        role: "button",
+        selectors: ["#save"],
+    },
+    viewport: {
+        width: 1280,
+        height: 720,
+        scrollX: 0,
+        scrollY: 0,
+        devicePixelRatio: 1,
+        zoom: 1,
+        visualViewport: {
+            width: 1280,
+            height: 720,
+            offsetLeft: 0,
+            offsetTop: 0,
+            scale: 1,
+        },
+    },
+    highlight: {
+        rect: { x: 100, y: 80, width: 120, height: 36 },
+        coordinateSpace: "viewport-css-pixels" as const,
+        hidden: false,
+    },
+};
 
 class FakeStorageArea implements ExtensionStorageArea {
     readonly values: Record<string, unknown> = {};
@@ -126,5 +163,79 @@ describe("recording service-worker messages", () => {
 
         expect(response).toMatchObject({ ok: false, error: { code: "SESSION_NOT_FOUND" } });
         expect(storageArea.values.recordingSession).toBeDefined();
+    });
+
+    it("persists five ordered clicks and ignores captures after stopping", async () => {
+        const storageArea = new FakeStorageArea();
+        const ids = [sessionId, ...stepIds];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            {
+                now: () => 300,
+                createId: () => {
+                    const id = ids.shift();
+                    if (!id) {
+                        throw new Error("The deterministic ID fixture was exhausted.");
+                    }
+                    return id;
+                },
+            },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+
+        for (let index = 0; index < 5; index += 1) {
+            await handler({
+                version: CONTRACT_VERSION,
+                type: "capture.click",
+                requestId: stepIds[index],
+                capture: { ...clickCapture, timestamp: clickCapture.timestamp + index },
+            }, clickCapture.url);
+        }
+
+        await handler({
+            version: CONTRACT_VERSION,
+            type: "recording.stop",
+            requestId,
+            sessionId,
+        });
+        const ignored = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click",
+            requestId: stepIds[5],
+            capture: clickCapture,
+        }, clickCapture.url);
+
+        expect(ignored).toMatchObject({
+            ok: true,
+            session: {
+                status: "stopped",
+                steps: stepIds.slice(0, 5).map((id, sequence) => ({ id, sequence })),
+            },
+        });
+        expect(storageArea.values.recordingSession).toEqual(
+            ignored.ok ? ignored.session : null,
+        );
+    });
+
+    it("rejects captures whose runtime sender does not match the page URL", async () => {
+        const storageArea = new FakeStorageArea();
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            { now: () => 300, createId: () => sessionId },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+
+        const response = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click",
+            requestId,
+            capture: clickCapture,
+        }, "chrome-extension://capchur/popup.html");
+
+        expect(response).toMatchObject({
+            ok: false,
+            error: { code: "INVALID_MESSAGE" },
+        });
+        expect(storageArea.values.recordingSession).toMatchObject({ steps: [] });
     });
 });

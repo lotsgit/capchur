@@ -113,3 +113,12 @@ export function formatDuration(durationMs: number): string {
 
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
+
+export function getPageOriginPattern(url: string): string {
+  const parsedUrl = new URL(url);
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error('This page cannot be recorded.');
+  }
+
+  return `${parsedUrl.protocol}//${parsedUrl.hostname}/*`;
+}

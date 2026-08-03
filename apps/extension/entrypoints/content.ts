@@ -1,6 +1,8 @@
+import { installClickCapture } from "../utils/click-capture";
+
 export default defineContentScript({
-  matches: ['*://*.google.com/*'],
-  main() {
-    console.log('Hello content.');
-  },
+    matches: ["http://*/*", "https://*/*"],
+    main() {
+        installClickCapture(window, (message) => browser.runtime.sendMessage(message));
+    },
 });

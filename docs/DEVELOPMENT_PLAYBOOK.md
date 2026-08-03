@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S05 - Click capture pipeline`
+**Current milestone:** `S06 - Screenshots and highlights`
 
-**Current repository status:** Runtime-validated contracts, a persistent extension recording state machine, accessible popup controls, and a pure element-analysis package are implemented with focused Vitest coverage. Element analysis resolves nested actionable targets, produces deterministic descriptions and shadow-aware locator candidates, and rejects sensitive or unsupported elements without returning metadata. No browser action capture exists yet.
+**Current repository status:** Runtime-validated contracts, persistent recording state, popup controls, pure element analysis, and an approved-page click pipeline are implemented with focused Vitest coverage. Starting or resuming requests the active HTTP(S) hostname, injects a duplicate-safe capture-phase listener, validates sanitized click candidates, and persists trusted step IDs and sequence numbers in the service worker. Screenshots are not captured yet.
 
-**Last completed session:** `S03 - Popup recording controls`
+**Last completed session:** `S05 - Click capture pipeline`
 
-**Next action:** Complete S05 only. Connect the tested element-analysis core to approved-page click capture and persisted, validated messages.
+**Next action:** Complete S06 only. Attach visible-tab screenshots and accurate editable highlight metadata to accepted steps.
 
 ## Product Goal
 
@@ -68,13 +68,13 @@ flowchart LR
 
 ### Repository Ownership
 
-| Location | Owns | Must not own |
-| --- | --- | --- |
-| `apps/extension` | Browser events, permissions, extension lifecycle, screenshots, local queue, extension UI | Database implementation, server secrets, web editor components |
-| `apps/web` | Guide editor, trusted API boundaries, authentication, server workflows | Browser extension APIs or content-script implementation |
-| `packages/contracts` | Versioned messages and data exchanged between processes/apps | Browser, React, database, or framework implementation |
-| Future `packages/capture-core` | Pure element analysis and description rules | DOM event registration or extension APIs |
-| Future `packages/export-core` | Pure guide-to-document transformations | UI, authentication, or storage clients |
+| Location                       | Owns                                                                                     | Must not own                                                   |
+| ------------------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `apps/extension`               | Browser events, permissions, extension lifecycle, screenshots, local queue, extension UI | Database implementation, server secrets, web editor components |
+| `apps/web`                     | Guide editor, trusted API boundaries, authentication, server workflows                   | Browser extension APIs or content-script implementation        |
+| `packages/contracts`           | Versioned messages and data exchanged between processes/apps                             | Browser, React, database, or framework implementation          |
+| Future `packages/capture-core` | Pure element analysis and description rules                                              | DOM event registration or extension APIs                       |
+| Future `packages/export-core`  | Pure guide-to-document transformations                                                   | UI, authentication, or storage clients                         |
 
 Dependencies flow from applications toward shared packages. An application must never import code from another application.
 
@@ -301,23 +301,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S05 - Click Capture Pipeline
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Capture supported clicks from ordinary HTTP(S) pages and persist steps through validated messages.
 
 **Tasks:**
 
-- [ ] Request the minimum host access when recording starts.
-- [ ] Register content scripts for approved HTTP(S) pages.
-- [ ] Listen in capture phase and use `event.composedPath()`.
-- [ ] Ignore extension UI, duplicate events, hidden targets, and unsupported pages.
-- [ ] Send only schema-validated metadata to the service worker.
+- [x] Request the minimum host access when recording starts.
+- [x] Register content scripts for approved HTTP(S) pages.
+- [x] Listen in capture phase and use `event.composedPath()`.
+- [x] Ignore extension UI, duplicate events, hidden targets, and unsupported pages.
+- [x] Send only schema-validated metadata to the service worker.
 
 **Acceptance:** Five clicks produce five ordered persisted steps; no events are captured while stopped.
 
+**Validation evidence:** All 43 workspace tests passed, including composed-path targeting, hidden and extension-owned target rejection, duplicate listener prevention, sender URL validation, five-step ordering, persistence, and stopped-state gating. Repository typecheck, lint, and production builds passed. The emitted MV3 manifest contains `activeTab`, `scripting`, and `storage`, with HTTP(S) host access optional; the dependency audit reports the existing advisories under **Known Risks**.
+
 ### S06 - Screenshots And Highlights
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Attach an accurate visible-tab screenshot and editable highlight metadata to every accepted step.
 
@@ -520,62 +522,65 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ## Progress Summary
 
-| Session | Status | Commit / evidence | Notes |
-| --- | --- | --- | --- |
-| S00 Workspace setup | DONE | `d7a0774` | Baseline apps build successfully. |
-| S01 Test and contracts | DONE | This commit | Runtime contracts and focused tests passed. |
-| S02 Recording state | DONE | This commit | Persistent commands and restart recovery passed. |
-| S03 Popup controls | DONE | This commit | Persisted controls and popup states passed. |
-| S04 Element analysis | DONE | This commit | Deterministic privacy-safe metadata and locator fixtures passed. |
-| S05 Click capture | NEXT | - | Depends on S02 and S04. |
-| S06 Screenshots | PLANNED | - | Depends on S05. |
-| S07 Local review | PLANNED | - | MVP capture checkpoint. |
-| S08 Web editor | PLANNED | - | Can use fixtures after guide contract exists. |
-| S09 Persistence API | PLANNED | - | Depends on S08 model. |
-| S10 Authentication | PLANNED | - | Required before cloud sync. |
-| S11 Extension sync | PLANNED | - | Depends on S09 and S10. |
-| S12 Complete editing | PLANNED | - | Depends on cloud editor. |
-| S13 HTML/Markdown | PLANNED | - | Establishes export model. |
-| S14 PDF/DOCX | PLANNED | - | Depends on S13. |
-| S15 AI descriptions | PLANNED | - | Deterministic fallback required. |
-| S16 Collaboration | PLANNED | - | Depends on authorization. |
-| S17 Hardening | PLANNED | - | Cross-browser evidence. |
-| S18 Release | PLANNED | - | Final gate. |
+| Session                | Status  | Commit / evidence | Notes                                                            |
+| ---------------------- | ------- | ----------------- | ---------------------------------------------------------------- |
+| S00 Workspace setup    | DONE    | `d7a0774`         | Baseline apps build successfully.                                |
+| S01 Test and contracts | DONE    | This commit       | Runtime contracts and focused tests passed.                      |
+| S02 Recording state    | DONE    | This commit       | Persistent commands and restart recovery passed.                 |
+| S03 Popup controls     | DONE    | This commit       | Persisted controls and popup states passed.                      |
+| S04 Element analysis   | DONE    | This commit       | Deterministic privacy-safe metadata and locator fixtures passed. |
+| S05 Click capture      | DONE    | This commit       | Five ordered clicks persist through a validated sender boundary. |
+| S06 Screenshots        | NEXT    | -                 | Depends on S05.                                                  |
+| S07 Local review       | PLANNED | -                 | MVP capture checkpoint.                                          |
+| S08 Web editor         | PLANNED | -                 | Can use fixtures after guide contract exists.                    |
+| S09 Persistence API    | PLANNED | -                 | Depends on S08 model.                                            |
+| S10 Authentication     | PLANNED | -                 | Required before cloud sync.                                      |
+| S11 Extension sync     | PLANNED | -                 | Depends on S09 and S10.                                          |
+| S12 Complete editing   | PLANNED | -                 | Depends on cloud editor.                                         |
+| S13 HTML/Markdown      | PLANNED | -                 | Establishes export model.                                        |
+| S14 PDF/DOCX           | PLANNED | -                 | Depends on S13.                                                  |
+| S15 AI descriptions    | PLANNED | -                 | Deterministic fallback required.                                 |
+| S16 Collaboration      | PLANNED | -                 | Depends on authorization.                                        |
+| S17 Hardening          | PLANNED | -                 | Cross-browser evidence.                                          |
+| S18 Release            | PLANNED | -                 | Final gate.                                                      |
 
 ## Decision Log
 
 Record decisions that affect more than one module or future session. Do not silently rewrite previous entries; add a superseding entry.
 
-| Date | Decision | Reason | Consequences |
-| --- | --- | --- | --- |
-| 2026-07-31 | Use a pnpm monorepo with WXT, Next.js, and shared contracts. | Keeps browser capture and web concerns separate while sharing wire types. | Run commands from root; no application-to-application imports. |
-| 2026-07-31 | Use action-based visible-tab screenshots with separate annotation metadata. | Browser API and editability constraints favor one screenshot per accepted action. | Continuous video and native desktop capture are outside the initial scope. |
-| 2026-07-31 | Build deterministic element descriptions before AI enhancement. | Improves privacy, cost, reliability, and offline behavior. | AI work waits until S15 and always has a deterministic fallback. |
-| 2026-08-03 | Use Zod 4 for shared runtime contracts and infer TypeScript types from strict schemas. | Zod provides runtime boundary validation while keeping wire schemas and static types in one owner package. | Producers and consumers import contracts from `@capchur/contracts`; unknown message and metadata fields are rejected. |
-| 2026-08-03 | Persist the active recording session under one validated `storage.local` key and serialize service-worker commands. | MV3 workers can suspend at any time, and concurrent commands must not overwrite newer state. | Commands load from storage, persist before replying, and delete invalid stored data during recovery; starting never replaces an existing session. |
-| 2026-08-03 | Use `activeTab` for popup page-availability checks without requesting host patterns. | The popup must distinguish recordable websites from protected pages while preserving least privilege before capture begins. | Access is temporary and user-invoked; broader host access remains deferred to S05. |
-| 2026-08-03 | Keep DOM element analysis in a pure shared package and return no metadata for sensitive or unsupported targets. | Capture descriptions and locators need deterministic tests and must not expose password or payment fields across extension boundaries. | S05 consumes a discriminated analysis result; locator candidates remain metadata and never appear in user-facing descriptions. |
+| Date       | Decision                                                                                                            | Reason                                                                                                                                                       | Consequences                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-07-31 | Use a pnpm monorepo with WXT, Next.js, and shared contracts.                                                        | Keeps browser capture and web concerns separate while sharing wire types.                                                                                    | Run commands from root; no application-to-application imports.                                                                                                           |
+| 2026-07-31 | Use action-based visible-tab screenshots with separate annotation metadata.                                         | Browser API and editability constraints favor one screenshot per accepted action.                                                                            | Continuous video and native desktop capture are outside the initial scope.                                                                                               |
+| 2026-07-31 | Build deterministic element descriptions before AI enhancement.                                                     | Improves privacy, cost, reliability, and offline behavior.                                                                                                   | AI work waits until S15 and always has a deterministic fallback.                                                                                                         |
+| 2026-08-03 | Use Zod 4 for shared runtime contracts and infer TypeScript types from strict schemas.                              | Zod provides runtime boundary validation while keeping wire schemas and static types in one owner package.                                                   | Producers and consumers import contracts from `@capchur/contracts`; unknown message and metadata fields are rejected.                                                    |
+| 2026-08-03 | Persist the active recording session under one validated `storage.local` key and serialize service-worker commands. | MV3 workers can suspend at any time, and concurrent commands must not overwrite newer state.                                                                 | Commands load from storage, persist before replying, and delete invalid stored data during recovery; starting never replaces an existing session.                        |
+| 2026-08-03 | Use `activeTab` for popup page-availability checks without requesting host patterns.                                | The popup must distinguish recordable websites from protected pages while preserving least privilege before capture begins.                                  | Access is temporary and user-invoked; broader host access remains deferred to S05.                                                                                       |
+| 2026-08-03 | Keep DOM element analysis in a pure shared package and return no metadata for sensitive or unsupported targets.     | Capture descriptions and locators need deterministic tests and must not expose password or payment fields across extension boundaries.                       | S05 consumes a discriminated analysis result; locator candidates remain metadata and never appear in user-facing descriptions.                                           |
+| 2026-08-03 | Request optional access for only the active HTTP(S) hostname and keep persistence fields worker-owned.              | Click capture must start on the current page without permanent broad host access, and page context cannot be trusted to assign session identity or ordering. | The popup injects the registered script after permission is granted; the worker verifies the sender URL, assigns IDs and sequence numbers, and persists before replying. |
+| 2026-08-03 | Upgrade WXT and pin vulnerable transitive dependencies at the pnpm workspace boundary.                              | Current stable Next and WXT dependency ranges still resolve known vulnerable PostCSS, Sharp, shell-quote, and adm-zip releases.                              | Reassess and remove each override when upstream stable ranges include the patched release; validate Chrome, Firefox, and Next image processing after dependency changes. |
 
 ## Known Risks
 
-| Risk | Status | Planned treatment |
-| --- | --- | --- |
-| The 2026-08-03 audit reports 1 critical and 6 high transitive advisories through WXT/web-ext tooling and Next.js Sharp/PostCSS dependencies. | Open | No S01 runtime dependency path is implicated. Resolve or formally assess in a dedicated dependency/security change before S18; never force an audit fix. |
-| Browser extensions cannot inspect native desktop applications or protected browser pages. | Accepted for browser MVP | Explain unsupported pages in S03/S17; evaluate a separate desktop recorder only after browser release. |
-| Canvas/WebGL applications provide weak semantic element data. | Open | Define fallback behavior and possible OCR investigation in S17. |
-| Cross-origin frames and closed shadow roots limit DOM access. | Open | Test and document explicit behavior in S17 without broadening permissions unnecessarily. |
+| Risk                                                                                                                                | Status                   | Planned treatment                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The 2026-08-03 audit reports one low-severity esbuild advisory affecting local Windows development servers through WXT/Vite/Vitest. | Open                     | Keep development servers bound to localhost and adopt esbuild 0.28.1 or later when parent tool ranges support it; do not force an unsupported 0.x override. |
+| Browser extensions cannot inspect native desktop applications or protected browser pages.                                           | Accepted for browser MVP | Explain unsupported pages in S03/S17; evaluate a separate desktop recorder only after browser release.                                                      |
+| Canvas/WebGL applications provide weak semantic element data.                                                                       | Open                     | Define fallback behavior and possible OCR investigation in S17.                                                                                             |
+| Cross-origin frames and closed shadow roots limit DOM access.                                                                       | Open                     | Test and document explicit behavior in S17 without broadening permissions unnecessarily.                                                                    |
 
 ## Session Completion Record
 
 Append one concise row whenever a roadmap session is completed.
 
-| Date | Session | Summary | Validation | Commit |
-| --- | --- | --- | --- | --- |
-| 2026-07-31 | S00 | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation. | Typecheck, lint, and build passed at setup. | `d7a0774` |
-| 2026-08-03 | S01 | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests. | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks. | This commit |
-| 2026-08-03 | S02 | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling. | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered. | This commit |
-| 2026-08-03 | S03 | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states. | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected. | This commit |
-| 2026-08-03 | S04 | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection. | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded. | This commit |
+| Date       | Session | Summary                                                                                                                                               | Validation                                                                                                                          | Commit      |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 2026-07-31 | S00     | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation.                                                      | Typecheck, lint, and build passed at setup.                                                                                         | `d7a0774`   |
+| 2026-08-03 | S01     | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests.                                  | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks.                                    | This commit |
+| 2026-08-03 | S02     | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling.                            | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered.                              | This commit |
+| 2026-08-03 | S03     | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states. | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected.                                             | This commit |
+| 2026-08-03 | S04     | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection.                                | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded.                                   | This commit |
+| 2026-08-03 | S05     | Added optional-origin click capture, composed-path element analysis, strict capture messages, sender validation, and ordered worker persistence.      | 43 tests, typecheck, lint, and production builds passed; emitted permissions inspected and existing audit findings remain recorded. | This commit |
 
 ## Scope Changes
 

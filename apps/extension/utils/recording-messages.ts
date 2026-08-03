@@ -1,6 +1,8 @@
 import {
     CONTRACT_VERSION,
     RecordingRequestMessageSchema,
+    type CapturedStep,
+    type ClickCapture,
     type RecordingRequestMessage,
     type RecordingResponseMessage,
     type RecordingSession,
@@ -20,14 +22,14 @@ interface RecordingMessageHandlerOptions {
 export function createRecordingMessageHandler(
     storage: RecordingStorage,
     options: RecordingMessageHandlerOptions = {},
-): (message: unknown) => Promise<RecordingResponseMessage> {
+): (message: unknown, sourceUrl?: string) => Promise<RecordingResponseMessage> {
     const now = options.now ?? Date.now;
     const createId = options.createId ?? (() => crypto.randomUUID());
     let pending = Promise.resolve();
 
-    return (message) => {
+    return (message, sourceUrl) => {
         const response = pending.then(() =>
-            handleRecordingMessage(storage, message, now, createId),
+            handleRecordingMessage(storage, message, sourceUrl, now, createId),
         );
         pending = response.then(
             () => undefined,
@@ -40,6 +42,7 @@ export function createRecordingMessageHandler(
 async function handleRecordingMessage(
     storage: RecordingStorage,
     untrustedMessage: unknown,
+    sourceUrl: string | undefined,
     now: () => number,
     createId: () => string,
 ): Promise<RecordingResponseMessage> {
@@ -53,6 +56,34 @@ async function handleRecordingMessage(
         const currentSession = await storage.load();
         if (message.type === "recording.status") {
             return successResponse(message.requestId, currentSession);
+        }
+
+        if (message.type === "capture.click") {
+            if (!isMatchingPageSource(sourceUrl, message.capture.url)) {
+                return errorResponse(
+                    message.requestId,
+                    "INVALID_MESSAGE",
+                    "The click capture source is invalid.",
+                );
+            }
+
+            if (!currentSession || currentSession.status !== "recording") {
+                return successResponse(message.requestId, currentSession);
+            }
+
+            const step = createCapturedStep(
+                currentSession.id,
+                currentSession.steps.length,
+                message.capture,
+                createId(),
+            );
+            const session = {
+                ...currentSession,
+                updatedAt: now(),
+                steps: [...currentSession.steps, step],
+            };
+            await storage.save(session);
+            return successResponse(message.requestId, session);
         }
 
         const transition = transitionRecordingState(
@@ -93,6 +124,8 @@ function toStateCommand(message: RecordingRequestMessage): RecordingStateCommand
             return { type: "clear", sessionId: message.sessionId };
         case "recording.status":
             throw new Error("Status messages do not transition recording state.");
+        case "capture.click":
+            throw new Error("Capture messages do not transition recording state.");
     }
 }
 
@@ -121,4 +154,37 @@ function errorResponse(
         ok: false,
         error: { code, message },
     };
+}
+
+function createCapturedStep(
+    sessionId: string,
+    sequence: number,
+    capture: ClickCapture,
+    id: string,
+): CapturedStep {
+    return {
+        id,
+        sessionId,
+        sequence,
+        action: "click",
+        ...capture,
+        screenshot: null,
+    };
+}
+
+function isMatchingPageSource(sourceUrl: string | undefined, captureUrl: string): boolean {
+    if (!sourceUrl) {
+        return false;
+    }
+
+    try {
+        const source = new URL(sourceUrl);
+        const capture = new URL(captureUrl);
+        return (
+            (source.protocol === "http:" || source.protocol === "https:") &&
+            source.href === capture.href
+        );
+    } catch {
+        return false;
+    }
 }

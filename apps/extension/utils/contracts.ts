@@ -6,6 +6,8 @@ export {
 } from "@capchur/contracts";
 
 export type {
+    CapturedStep,
+    ClickCapture,
     ExtensionMessage,
     RecordingRequestMessage,
     RecordingResponseMessage,

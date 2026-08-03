@@ -5,6 +5,7 @@ import {
   classifyPageUrl,
   createRequest,
   formatDuration,
+  getPageOriginPattern,
   getSessionDuration,
   runRecordingCommand,
 } from './recording-client';
@@ -58,6 +59,15 @@ describe('popup recording client', () => {
     expect(classifyPageUrl('https://example.com')).toEqual({ status: 'available' });
     expect(classifyPageUrl('chrome://extensions')).toMatchObject({ status: 'unavailable' });
     expect(classifyPageUrl(undefined)).toMatchObject({ status: 'permission-denied' });
+  });
+
+  it('creates the minimum host pattern for the active page origin', () => {
+    expect(getPageOriginPattern('https://example.com:8443/settings?tab=team')).toBe(
+      'https://example.com/*',
+    );
+    expect(() => getPageOriginPattern('chrome://extensions')).toThrow(
+      'cannot be recorded',
+    );
   });
 
   it('formats live and stopped session durations', () => {

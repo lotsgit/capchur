@@ -8,7 +8,8 @@ export default defineConfig({
         },
     },
     manifest: {
-        permissions: ["activeTab", "storage"],
+        permissions: ["activeTab", "scripting", "storage"],
+        optional_host_permissions: ["http://*/*", "https://*/*"],
     },
     modules: ["@wxt-dev/module-react"],
 });

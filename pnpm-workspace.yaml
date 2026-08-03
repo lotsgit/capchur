@@ -2,6 +2,12 @@ packages:
   - "apps/*"
   - "packages/*"
 
+overrides:
+  "firefox-profile>adm-zip": "0.6.0"
+  "fx-runner>shell-quote": "1.9.0"
+  "next>postcss": "8.5.25"
+  "next>sharp": "0.35.3"
+
 allowBuilds:
   esbuild: true
   sharp: true

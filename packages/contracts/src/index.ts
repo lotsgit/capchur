@@ -78,6 +78,16 @@ export const CapturedStepSchema = z.strictObject({
     highlight: HighlightMetadataSchema,
 });
 
+export const ClickCaptureSchema = z.strictObject({
+    timestamp: TimestampSchema,
+    url: HttpUrlSchema,
+    pageTitle: z.string().trim().max(1_000),
+    description: NonEmptyStringSchema,
+    element: ElementMetadataSchema,
+    viewport: ViewportSchema,
+    highlight: HighlightMetadataSchema,
+});
+
 export const RecordingStatusSchema = z.enum([
     "recording",
     "paused",
@@ -120,6 +130,11 @@ export const RecordingRequestMessageSchema = z.discriminatedUnion("type", [
         ...MessageBaseShape,
         type: z.literal("recording.clear"),
         sessionId: IdSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("capture.click"),
+        capture: ClickCaptureSchema,
     }),
 ]);
 
@@ -175,6 +190,7 @@ export type Viewport = z.infer<typeof ViewportSchema>;
 export type ScreenshotMetadata = z.infer<typeof ScreenshotMetadataSchema>;
 export type HighlightMetadata = z.infer<typeof HighlightMetadataSchema>;
 export type CapturedStep = z.infer<typeof CapturedStepSchema>;
+export type ClickCapture = z.infer<typeof ClickCaptureSchema>;
 export type RecordingStatus = z.infer<typeof RecordingStatusSchema>;
 export type RecordingSession = z.infer<typeof RecordingSessionSchema>;
 export type RecordingRequestMessage = z.infer<

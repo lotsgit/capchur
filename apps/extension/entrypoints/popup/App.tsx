@@ -5,6 +5,7 @@ import type { RecordingSession } from '../../utils/contracts';
 import {
   classifyPageUrl,
   formatDuration,
+  getPageOriginPattern,
   getSessionDuration,
   runRecordingCommand,
   type PageAvailability,
@@ -77,6 +78,28 @@ function App() {
     setConfirmClear(false);
 
     try {
+      if (command === 'start' || command === 'resume') {
+        const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!activeTab?.url) {
+          throw new Error('Capchur cannot access this tab. Open the extension again to grant access.');
+        }
+
+        const granted = await browser.permissions.request({
+          origins: [getPageOriginPattern(activeTab.url)],
+        });
+        if (!granted) {
+          throw new Error('Page access was denied. Capchur did not start recording.');
+        }
+
+        if (activeTab.id === undefined) {
+          throw new Error('The active tab is unavailable. Capchur did not start recording.');
+        }
+        await browser.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          files: ['/content-scripts/content.js'],
+        });
+      }
+
       const nextSession = await runRecordingCommand(command, session, (message) =>
         browser.runtime.sendMessage(message),
       );
