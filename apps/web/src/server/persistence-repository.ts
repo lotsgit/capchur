@@ -25,20 +25,20 @@ import {
 
 export interface StoredObjectRecord extends ImageUploadIntent {
   objectKey: string;
-  ownerId: string;
+  workspaceId: string;
   createdAt: number;
 }
 
 export interface PersistenceRepository {
-  createGuide(ownerId: string, id: string, write: GuideWrite, now: number): Promise<Guide>;
-  getGuide(ownerId: string, guideId: string): Promise<Guide | null>;
-  updateGuide(ownerId: string, guideId: string, write: GuideWrite, now: number): Promise<Guide | null>;
-  deleteGuide(ownerId: string, guideId: string): Promise<string[]>;
-  putSession(ownerId: string, session: RecordingSession): Promise<RecordingSession>;
-  getSession(ownerId: string, sessionId: string): Promise<RecordingSession | null>;
-  deleteSession(ownerId: string, sessionId: string): Promise<boolean>;
+  createGuide(workspaceId: string, id: string, write: GuideWrite, now: number): Promise<Guide>;
+  getGuide(workspaceId: string, guideId: string): Promise<Guide | null>;
+  updateGuide(workspaceId: string, guideId: string, write: GuideWrite, now: number): Promise<Guide | null>;
+  deleteGuide(workspaceId: string, guideId: string): Promise<string[]>;
+  putSession(workspaceId: string, session: RecordingSession): Promise<RecordingSession>;
+  getSession(workspaceId: string, sessionId: string): Promise<RecordingSession | null>;
+  deleteSession(workspaceId: string, sessionId: string): Promise<boolean>;
   createObject(record: StoredObjectRecord): Promise<void>;
-  getObject(ownerId: string, objectKey: string): Promise<StoredObjectRecord | null>;
+  getObject(workspaceId: string, objectKey: string): Promise<StoredObjectRecord | null>;
 }
 
 type LocalTransaction = Parameters<Parameters<LocalDatabase["transaction"]>[0]>[0];
@@ -68,13 +68,13 @@ function mapGuide(
 
 async function selectGuide(
   database: DatabaseQueryHandle,
-  ownerId: string,
+  workspaceId: string,
   guideId: string,
 ): Promise<Guide | null> {
   const [guide] = await database
     .select()
     .from(guides)
-    .where(and(eq(guides.id, guideId), eq(guides.ownerId, ownerId)))
+    .where(and(eq(guides.id, guideId), eq(guides.workspaceId, workspaceId)))
     .limit(1);
 
   if (!guide) {
@@ -109,17 +109,17 @@ async function replaceSteps(
 
 function createRepositoryForDatabase(database: DatabaseQueryHandle): PersistenceRepository {
   return {
-    async createGuide(ownerId, id, write, now) {
+    async createGuide(workspaceId, id, write, now) {
       await database.insert(guides).values({
         id,
-        ownerId,
+        workspaceId,
         version: CONTRACT_VERSION,
         title: write.title,
         description: write.description,
         updatedAt: now,
       });
       await replaceSteps(database, id, write);
-      const guide = await selectGuide(database, ownerId, id);
+      const guide = await selectGuide(database, workspaceId, id);
 
       if (!guide) {
         throw new Error("Created guide could not be loaded");
@@ -128,15 +128,15 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       return guide;
     },
 
-    getGuide(ownerId, guideId) {
-      return selectGuide(database, ownerId, guideId);
+    getGuide(workspaceId, guideId) {
+      return selectGuide(database, workspaceId, guideId);
     },
 
-    async updateGuide(ownerId, guideId, write, now) {
+    async updateGuide(workspaceId, guideId, write, now) {
       const [updated] = await database
         .update(guides)
         .set({ title: write.title, description: write.description, updatedAt: now })
-        .where(and(eq(guides.id, guideId), eq(guides.ownerId, ownerId)))
+        .where(and(eq(guides.id, guideId), eq(guides.workspaceId, workspaceId)))
         .returning();
 
       if (!updated) {
@@ -144,52 +144,52 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       }
 
       await replaceSteps(database, guideId, write);
-      return selectGuide(database, ownerId, guideId);
+      return selectGuide(database, workspaceId, guideId);
     },
 
-    async deleteGuide(ownerId, guideId) {
+    async deleteGuide(workspaceId, guideId) {
       const objects = await database
         .select({ objectKey: storedObjects.objectKey })
         .from(storedObjects)
-        .where(and(eq(storedObjects.guideId, guideId), eq(storedObjects.ownerId, ownerId)));
+        .where(and(eq(storedObjects.guideId, guideId), eq(storedObjects.workspaceId, workspaceId)));
       const deleted = await database
         .delete(guides)
-        .where(and(eq(guides.id, guideId), eq(guides.ownerId, ownerId)))
+        .where(and(eq(guides.id, guideId), eq(guides.workspaceId, workspaceId)))
         .returning();
 
       return deleted.length === 0 ? [] : objects.map((object) => object.objectKey);
     },
 
-    async putSession(ownerId, session) {
+    async putSession(workspaceId, session) {
       await database
         .insert(recordingSessions)
-        .values({ id: session.id, ownerId, payload: session, updatedAt: session.updatedAt })
+        .values({ id: session.id, workspaceId, payload: session, updatedAt: session.updatedAt })
         .onConflictDoUpdate({
           target: recordingSessions.id,
           set: { payload: session, updatedAt: session.updatedAt },
-          setWhere: eq(recordingSessions.ownerId, ownerId),
+          setWhere: eq(recordingSessions.workspaceId, workspaceId),
         });
       return session;
     },
 
-    async getSession(ownerId, sessionId) {
+    async getSession(workspaceId, sessionId) {
       const [record] = await database
         .select({ payload: recordingSessions.payload })
         .from(recordingSessions)
         .where(and(
           eq(recordingSessions.id, sessionId),
-          eq(recordingSessions.ownerId, ownerId),
+          eq(recordingSessions.workspaceId, workspaceId),
         ))
         .limit(1);
       return record ? RecordingSessionSchema.parse(record.payload) : null;
     },
 
-    async deleteSession(ownerId, sessionId) {
+    async deleteSession(workspaceId, sessionId) {
       const deleted = await database
         .delete(recordingSessions)
         .where(and(
           eq(recordingSessions.id, sessionId),
-          eq(recordingSessions.ownerId, ownerId),
+          eq(recordingSessions.workspaceId, workspaceId),
         ))
         .returning();
       return deleted.length > 0;
@@ -199,13 +199,13 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       await database.insert(storedObjects).values(record);
     },
 
-    async getObject(ownerId, objectKey) {
+    async getObject(workspaceId, objectKey) {
       const [record] = await database
         .select()
         .from(storedObjects)
         .where(and(
           eq(storedObjects.objectKey, objectKey),
-          eq(storedObjects.ownerId, ownerId),
+          eq(storedObjects.workspaceId, workspaceId),
         ))
         .limit(1);
       if (!record) {
@@ -222,7 +222,7 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       return {
         ...intent,
         objectKey: record.objectKey,
-        ownerId: record.ownerId,
+        workspaceId: record.workspaceId,
         createdAt: record.createdAt,
       };
     },
@@ -249,9 +249,9 @@ export function createPersistenceRepository(handle: DatabaseHandle): Persistence
 
   return {
     ...repository,
-    createGuide(ownerId, id, write, now) {
+    createGuide(workspaceId, id, write, now) {
       return createTransactionalRepository(handle, (transaction) =>
-        transaction.createGuide(ownerId, id, write, now),
+        transaction.createGuide(workspaceId, id, write, now),
       ).then((guide) => {
         if (!guide) {
           throw new Error("Created guide could not be loaded");
@@ -259,9 +259,9 @@ export function createPersistenceRepository(handle: DatabaseHandle): Persistence
         return guide;
       });
     },
-    updateGuide(ownerId, guideId, write, now) {
+    updateGuide(workspaceId, guideId, write, now) {
       return createTransactionalRepository(handle, (transaction) =>
-        transaction.updateGuide(ownerId, guideId, write, now),
+        transaction.updateGuide(workspaceId, guideId, write, now),
       );
     },
   };

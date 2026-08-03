@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
@@ -41,6 +42,7 @@ async function createDatabase(): Promise<DatabaseHandle> {
   }
 
   const dataDirectory = process.env.CAPCHUR_DATA_DIR ?? join(process.cwd(), ".data");
+  await mkdir(dataDirectory, { recursive: true });
   const client = new PGlite(join(dataDirectory, "postgres"));
   const database = drizzlePglite(client, { schema });
   await migratePglite(database, { migrationsFolder });

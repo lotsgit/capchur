@@ -13,11 +13,18 @@ import {
   moveGuideStep, updateGuideDetails, updateGuideStep, type StepDirection,
 } from "@/lib/guide-editor-state";
 import { loadGuideFixture } from "@/lib/guide-fixture";
+import { AccountControl } from "@/app/account-control";
 
 type LoadState = "loading" | "ready" | "error";
 type GuideLoader = () => Promise<Guide>;
 
-export function GuideEditor({ fixtureLoader = loadGuideFixture }: { fixtureLoader?: GuideLoader }) {
+export function GuideEditor({
+  fixtureLoader = loadGuideFixture,
+  identity,
+}: {
+  fixtureLoader?: GuideLoader;
+  identity?: { name: string; role: "owner" | "member" };
+}) {
   const [guide, setGuide] = useState<Guide | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -138,6 +145,7 @@ export function GuideEditor({ fixtureLoader = loadGuideFixture }: { fixtureLoade
           <div className="toolbar-actions">
             {saveMessage && <span className="saved-message" role="status"><Check size={14} /> {saveMessage}</span>}
             <button className="primary-button" type="button" disabled={!unsaved} onClick={() => { setUnsaved(false); setSaveMessage("Preview saved"); }}><Check size={16} /> Save draft</button>
+            {identity && <AccountControl name={identity.name} role={identity.role} />}
           </div>
         </header>
         {selectedStep ? (

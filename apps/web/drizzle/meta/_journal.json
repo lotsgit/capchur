@@ -8,6 +8,13 @@
       "when": 1785778800000,
       "tag": "0000_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785760862314,
+      "tag": "0001_pale_machine_man",
+      "breakpoints": true
     }
   ]
 }

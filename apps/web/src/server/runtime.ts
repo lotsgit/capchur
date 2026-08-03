@@ -1,17 +1,30 @@
-import { createEnvironmentAuthenticator } from "./auth";
+import { createAuth, WorkspaceAuthenticator } from "./auth";
 import { PersistenceApi } from "./api";
 import { getDatabase } from "./db";
 import { createEnvironmentObjectStorage } from "./object-storage";
 import { createPersistenceRepository } from "./persistence-repository";
 
 const globalRuntime = globalThis as typeof globalThis & {
+  capchurAuth?: Promise<ReturnType<typeof createAuth>>;
   capchurPersistenceApi?: Promise<PersistenceApi>;
 };
+
+export function getAuth(): Promise<ReturnType<typeof createAuth>> {
+  globalRuntime.capchurAuth ??= getDatabase().then(createAuth);
+  return globalRuntime.capchurAuth;
+}
+
+export async function getWorkspaceAuthenticator(): Promise<WorkspaceAuthenticator> {
+  const [database, auth] = await Promise.all([getDatabase(), getAuth()]);
+  return new WorkspaceAuthenticator({
+    getSession: (headers) => auth.api.getSession({ headers }),
+  }, database.database);
+}
 
 async function createPersistenceApi(): Promise<PersistenceApi> {
   const database = await getDatabase();
   return new PersistenceApi(
-    createEnvironmentAuthenticator(),
+    await getWorkspaceAuthenticator(),
     createPersistenceRepository(database),
     createEnvironmentObjectStorage(),
   );

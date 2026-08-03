@@ -6,7 +6,7 @@ import {
   RecordingSessionWriteSchema,
 } from "@capchur/contracts";
 
-import type { ApiAuthenticator } from "./auth";
+import type { WorkspaceAuthenticator, WorkspacePrincipal } from "./auth";
 import type { ObjectStorage } from "./object-storage";
 import type { PersistenceRepository, StoredObjectRecord } from "./persistence-repository";
 
@@ -24,24 +24,33 @@ async function parseJson(request: Request): Promise<unknown> {
 
 export class PersistenceApi {
   constructor(
-    private readonly authenticator: ApiAuthenticator,
+    private readonly authenticator: WorkspaceAuthenticator,
     private readonly repository: PersistenceRepository,
     private readonly storage: ObjectStorage,
     private readonly now: () => number = Date.now,
     private readonly createId: () => string = randomUUID,
   ) {}
 
+  private async authorize(request: Request, mutation = false): Promise<WorkspacePrincipal | Response> {
+    const principal = await this.authenticator.authenticate(request);
+    if (!principal) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    if (mutation && principal.role !== "owner") {
+      return jsonError(403, "FORBIDDEN", "Workspace owner access is required");
+    }
+    return principal;
+  }
+
   async guides(request: Request): Promise<Response> {
-    const ownerId = this.authenticator.authenticate(request);
-    if (!ownerId) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
     if (request.method !== "POST") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    const authorization = await this.authorize(request, true);
+    if (authorization instanceof Response) return authorization;
 
     const parsed = GuideWriteSchema.safeParse(await parseJson(request));
     if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Guide data is invalid");
 
     try {
       const guide = await this.repository.createGuide(
-        ownerId,
+        authorization.workspaceId,
         this.createId(),
         parsed.data,
         this.now(),
@@ -53,11 +62,12 @@ export class PersistenceApi {
   }
 
   async guide(request: Request, guideId: string): Promise<Response> {
-    const ownerId = this.authenticator.authenticate(request);
-    if (!ownerId) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    const authorization = await this.authorize(request, request.method !== "GET");
+    if (authorization instanceof Response) return authorization;
+    const { workspaceId } = authorization;
 
     if (request.method === "GET") {
-      const guide = await this.repository.getGuide(ownerId, guideId);
+      const guide = await this.repository.getGuide(workspaceId, guideId);
       return guide ? Response.json(guide) : jsonError(404, "NOT_FOUND", "Guide not found");
     }
 
@@ -65,7 +75,7 @@ export class PersistenceApi {
       const parsed = GuideWriteSchema.safeParse(await parseJson(request));
       if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Guide data is invalid");
       try {
-        const guide = await this.repository.updateGuide(ownerId, guideId, parsed.data, this.now());
+        const guide = await this.repository.updateGuide(workspaceId, guideId, parsed.data, this.now());
         return guide ? Response.json(guide) : jsonError(404, "NOT_FOUND", "Guide not found");
       } catch {
         return jsonError(500, "PERSISTENCE_ERROR", "The guide could not be updated");
@@ -73,9 +83,9 @@ export class PersistenceApi {
     }
 
     if (request.method === "DELETE") {
-      const objectKeys = await this.repository.deleteGuide(ownerId, guideId);
+      const objectKeys = await this.repository.deleteGuide(workspaceId, guideId);
       if (objectKeys.length === 0) {
-        const guide = await this.repository.getGuide(ownerId, guideId);
+        const guide = await this.repository.getGuide(workspaceId, guideId);
         if (!guide) return new Response(null, { status: 204 });
       }
       await this.storage.delete(objectKeys);
@@ -86,35 +96,37 @@ export class PersistenceApi {
   }
 
   async session(request: Request, sessionId?: string): Promise<Response> {
-    const ownerId = this.authenticator.authenticate(request);
-    if (!ownerId) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    const authorization = await this.authorize(request, request.method !== "GET");
+    if (authorization instanceof Response) return authorization;
+    const { workspaceId } = authorization;
 
     if (request.method === "PUT") {
       const parsed = RecordingSessionWriteSchema.safeParse(await parseJson(request));
       if (!parsed.success || (sessionId && parsed.data.session.id !== sessionId)) {
         return jsonError(400, "INVALID_REQUEST", "Session data is invalid");
       }
-      return Response.json(await this.repository.putSession(ownerId, parsed.data.session));
+      return Response.json(await this.repository.putSession(workspaceId, parsed.data.session));
     }
     if (!sessionId) return jsonError(400, "INVALID_REQUEST", "Session ID is required");
     if (request.method === "GET") {
-      const session = await this.repository.getSession(ownerId, sessionId);
+      const session = await this.repository.getSession(workspaceId, sessionId);
       return session ? Response.json(session) : jsonError(404, "NOT_FOUND", "Session not found");
     }
     if (request.method === "DELETE") {
-      await this.repository.deleteSession(ownerId, sessionId);
+      await this.repository.deleteSession(workspaceId, sessionId);
       return new Response(null, { status: 204 });
     }
     return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
   }
 
   async imageUploadIntent(request: Request): Promise<Response> {
-    const ownerId = this.authenticator.authenticate(request);
-    if (!ownerId) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    const authorization = await this.authorize(request, true);
+    if (authorization instanceof Response) return authorization;
+    const { workspaceId } = authorization;
 
     const parsed = ImageUploadIntentSchema.safeParse(await parseJson(request));
     if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Image metadata is invalid");
-    const guide = await this.repository.getGuide(ownerId, parsed.data.guideId);
+    const guide = await this.repository.getGuide(workspaceId, parsed.data.guideId);
     if (!guide || !guide.steps.some((step) => step.id === parsed.data.stepId)) {
       return jsonError(404, "NOT_FOUND", "Guide step not found");
     }
@@ -123,7 +135,7 @@ export class PersistenceApi {
       parsed.data.mimeType === "image/jpeg" ? "jpg" : "webp";
     const record: StoredObjectRecord = {
       ...parsed.data,
-      ownerId,
+      workspaceId,
       objectKey: `${parsed.data.guideId}/${this.createId()}.${extension}`,
       createdAt: this.now(),
     };
@@ -132,11 +144,11 @@ export class PersistenceApi {
   }
 
   async imageDownloadIntent(request: Request): Promise<Response> {
-    const ownerId = this.authenticator.authenticate(request);
-    if (!ownerId) return jsonError(401, "UNAUTHENTICATED", "Authentication is required");
+    const authorization = await this.authorize(request);
+    if (authorization instanceof Response) return authorization;
     const objectKey = new URL(request.url).searchParams.get("objectKey");
     if (!objectKey) return jsonError(400, "INVALID_REQUEST", "Object key is required");
-    const record = await this.repository.getObject(ownerId, objectKey);
+    const record = await this.repository.getObject(authorization.workspaceId, objectKey);
     return record
       ? Response.json(await this.storage.issueDownload(record))
       : jsonError(404, "NOT_FOUND", "Image not found");
