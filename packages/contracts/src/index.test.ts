@@ -5,7 +5,9 @@ import {
     CapturedStepSchema,
     ClickCaptureSchema,
     ExtensionMessageSchema,
+    GuideWriteSchema,
     GuideSchema,
+    ImageUploadIntentSchema,
     LocalSessionArchiveSchema,
     RecordingRequestMessageSchema,
     RecordingResponseMessageSchema,
@@ -281,6 +283,29 @@ describe("guide domain contracts", () => {
         expect(GuideSchema.safeParse({
             ...validGuide,
             steps: [{ ...validGuide.steps[0], sessionId }],
+        }).success).toBe(false);
+    });
+
+    it("validates persistence writes without accepting server-owned fields", () => {
+        const { id: _id, updatedAt: _updatedAt, version: _version, ...write } = validGuide;
+
+        expect(GuideWriteSchema.parse(write)).toEqual(write);
+        expect(GuideWriteSchema.safeParse(validGuide).success).toBe(false);
+    });
+
+    it("validates bounded image upload intents", () => {
+        const intent = {
+            guideId: validGuide.id,
+            stepId: validGuide.steps[0].id,
+            mimeType: "image/png",
+            byteLength: 1024,
+            sha256: "a".repeat(64),
+        };
+
+        expect(ImageUploadIntentSchema.parse(intent)).toEqual(intent);
+        expect(ImageUploadIntentSchema.safeParse({
+            ...intent,
+            byteLength: 26 * 1024 * 1024,
         }).success).toBe(false);
     });
 });

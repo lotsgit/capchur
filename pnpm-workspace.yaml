@@ -3,6 +3,7 @@ packages:
   - "packages/*"
 
 overrides:
+  "@esbuild-kit/core-utils>esbuild": "0.25.12"
   "firefox-profile>adm-zip": "0.6.0"
   "fx-runner>shell-quote": "1.9.0"
   "next>postcss": "8.5.25"

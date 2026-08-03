@@ -168,6 +168,52 @@ export const GuideSchema = z.strictObject({
     }
 });
 
+export const GuideWriteSchema = z.strictObject({
+    title: NonEmptyStringSchema,
+    description: z.string().trim().max(5_000),
+    steps: z.array(GuideStepSchema).max(500),
+}).superRefine((guide, context) => {
+    const positions = new Set<number>();
+
+    for (const step of guide.steps) {
+        if (positions.has(step.position)) {
+            context.addIssue({
+                code: "custom",
+                message: "Guide step positions must be unique",
+                path: ["steps"],
+            });
+            return;
+        }
+
+        positions.add(step.position);
+    }
+});
+
+export const RecordingSessionWriteSchema = z.strictObject({
+    session: RecordingSessionSchema,
+});
+
+export const ImageUploadIntentSchema = z.strictObject({
+    guideId: IdSchema,
+    stepId: IdSchema,
+    mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    byteLength: z.number().int().positive().max(25 * 1024 * 1024),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export const SignedImageUploadSchema = z.strictObject({
+    objectKey: NonEmptyStringSchema,
+    uploadUrl: z.string().trim().min(1).max(4_000),
+    method: z.literal("PUT"),
+    expiresAt: TimestampSchema,
+    headers: z.record(z.string(), z.string()),
+});
+
+export const SignedImageDownloadSchema = z.strictObject({
+    downloadUrl: z.string().trim().min(1).max(4_000),
+    expiresAt: TimestampSchema,
+});
+
 const MessageBaseShape = {
     version: z.literal(CONTRACT_VERSION),
     requestId: IdSchema,
@@ -296,6 +342,11 @@ export type GuideMedia = z.infer<typeof GuideMediaSchema>;
 export type GuideAnnotation = z.infer<typeof GuideAnnotationSchema>;
 export type GuideStep = z.infer<typeof GuideStepSchema>;
 export type Guide = z.infer<typeof GuideSchema>;
+export type GuideWrite = z.infer<typeof GuideWriteSchema>;
+export type RecordingSessionWrite = z.infer<typeof RecordingSessionWriteSchema>;
+export type ImageUploadIntent = z.infer<typeof ImageUploadIntentSchema>;
+export type SignedImageUpload = z.infer<typeof SignedImageUploadSchema>;
+export type SignedImageDownload = z.infer<typeof SignedImageDownloadSchema>;
 export type RecordingRequestMessage = z.infer<
     typeof RecordingRequestMessageSchema
 >;
