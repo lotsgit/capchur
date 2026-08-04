@@ -18,6 +18,7 @@ import type {
 } from "./db";
 import {
   exportJobs,
+  guideRevisions,
   guideSteps,
   guides,
   recordingSessions,
@@ -44,6 +45,7 @@ export interface PersistenceRepository {
     write: GuideWrite,
     now: number,
     expectedUpdatedAt?: number,
+    revision?: { id: string; actorUserId: string },
   ): Promise<Guide | null>;
   deleteGuide(workspaceId: string, guideId: string): Promise<string[]>;
   putSession(workspaceId: string, session: RecordingSession): Promise<RecordingSession>;
@@ -188,7 +190,7 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       return selectGuide(database, workspaceId, guideId);
     },
 
-    async updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt) {
+    async updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt, revision) {
       const [updated] = await database
         .update(guides)
         .set({
@@ -210,7 +212,18 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       }
 
       await replaceSteps(database, guideId, write);
-      return selectGuide(database, workspaceId, guideId);
+      const guide = await selectGuide(database, workspaceId, guideId);
+      if (guide && revision) {
+        await database.insert(guideRevisions).values({
+          id: revision.id,
+          guideId,
+          workspaceId,
+          actorUserId: revision.actorUserId,
+          guideSnapshot: guide,
+          createdAt: now,
+        });
+      }
+      return guide;
     },
 
     async deleteGuide(workspaceId, guideId) {
@@ -458,9 +471,9 @@ export function createPersistenceRepository(handle: DatabaseHandle): Persistence
         return guide;
       });
     },
-    updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt) {
+    updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt, revision) {
       return createTransactionalRepository(handle, (transaction) =>
-        transaction.updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt),
+        transaction.updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt, revision),
       );
     },
     syncSession(workspaceId, session, idempotencyKey, guideId, now) {

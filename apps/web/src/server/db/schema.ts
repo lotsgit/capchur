@@ -5,6 +5,7 @@ import type {
   GuideAnnotation,
   GuideBranding,
   GuideMedia,
+  GuideVisibility,
   RecordingSession,
 } from "@capchur/contracts";
 import {
@@ -148,6 +149,85 @@ export const guideSteps = pgTable(
       table.position,
     ),
   ],
+);
+
+export const guideAccess = pgTable("guide_access", {
+  guideId: uuid("guide_id")
+    .primaryKey()
+    .references(() => guides.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id").notNull(),
+  visibility: text("visibility").$type<GuideVisibility>().default("private").notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+});
+
+export const guideShares = pgTable(
+  "guide_shares",
+  {
+    id: uuid("id").primaryKey(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }),
+    revokedAt: bigint("revoked_at", { mode: "number" }),
+  },
+  (table) => [
+    uniqueIndex("guide_shares_token_hash_idx").on(table.tokenHash),
+    index("guide_shares_guide_id_idx").on(table.guideId),
+  ],
+);
+
+export const guideComments = pgTable(
+  "guide_comments",
+  {
+    id: uuid("id").primaryKey(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id").notNull(),
+    userId: text("user_id").notNull(),
+    body: text("body").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("guide_comments_guide_created_idx").on(table.guideId, table.createdAt)],
+);
+
+export const guideRevisions = pgTable(
+  "guide_revisions",
+  {
+    id: uuid("id").primaryKey(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    guideSnapshot: jsonb("guide_snapshot").$type<Guide>().notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("guide_revisions_guide_created_idx").on(table.guideId, table.createdAt)],
+);
+
+export type GuideAuditAction =
+  | "visibility.changed"
+  | "share.created"
+  | "share.revoked"
+  | "revision.restored";
+
+export const guideAuditEvents = pgTable(
+  "guide_audit_events",
+  {
+    id: uuid("id").primaryKey(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    action: text("action").$type<GuideAuditAction>().notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("guide_audit_events_guide_created_idx").on(table.guideId, table.createdAt)],
 );
 
 export const recordingSessions = pgTable("recording_sessions", {

@@ -12,6 +12,7 @@ import {
 } from "@capchur/contracts";
 
 import type { WorkspaceAuthenticator, WorkspacePrincipal } from "./auth";
+import type { CollaborationRepository } from "./collaboration-repository";
 import type { ExtensionAuthorizationService } from "./extension-auth";
 import type { ObjectStorage } from "./object-storage";
 import type { PersistenceRepository, StoredObjectRecord } from "./persistence-repository";
@@ -35,6 +36,7 @@ export class PersistenceApi {
     private readonly storage: ObjectStorage,
     private readonly now: () => number = Date.now,
     private readonly createId: () => string = randomUUID,
+    private readonly collaboration?: CollaborationRepository,
   ) {}
 
   private async authorize(request: Request, mutation = false): Promise<WorkspacePrincipal | Response> {
@@ -44,6 +46,11 @@ export class PersistenceApi {
       return jsonError(403, "FORBIDDEN", "Workspace owner access is required");
     }
     return principal;
+  }
+
+  private async canReadGuide(principal: WorkspacePrincipal, guideId: string): Promise<boolean> {
+    if (!this.collaboration || principal.role === "owner") return true;
+    return await this.collaboration.getVisibility(principal.workspaceId, guideId) === "workspace";
   }
 
   async guides(request: Request): Promise<Response> {
@@ -73,6 +80,9 @@ export class PersistenceApi {
     const { workspaceId } = authorization;
 
     if (request.method === "GET") {
+      if (!await this.canReadGuide(authorization, guideId)) {
+        return jsonError(404, "NOT_FOUND", "Guide not found");
+      }
       const guide = await this.repository.getGuide(workspaceId, guideId);
       return guide ? Response.json(guide) : jsonError(404, "NOT_FOUND", "Guide not found");
     }
@@ -87,6 +97,9 @@ export class PersistenceApi {
           parsed.data.guide,
           Math.max(this.now(), parsed.data.updatedAt + 1),
           parsed.data.updatedAt,
+          this.collaboration
+            ? { id: this.createId(), actorUserId: authorization.userId }
+            : undefined,
         );
         if (guide) return Response.json(guide);
         const current = await this.repository.getGuide(workspaceId, guideId);
@@ -165,7 +178,7 @@ export class PersistenceApi {
     const objectKey = new URL(request.url).searchParams.get("objectKey");
     if (!objectKey) return jsonError(400, "INVALID_REQUEST", "Object key is required");
     const record = await this.repository.getObject(authorization.workspaceId, objectKey);
-    return record
+    return record && await this.canReadGuide(authorization, record.guideId)
       ? Response.json(await this.storage.issueDownload(record))
       : jsonError(404, "NOT_FOUND", "Image not found");
   }
@@ -176,7 +189,9 @@ export class PersistenceApi {
     const objectKey = new URL(request.url).searchParams.get("objectKey");
     if (!objectKey) return jsonError(400, "INVALID_REQUEST", "Object key is required");
     const record = await this.repository.getObject(authorization.workspaceId, objectKey);
-    if (!record) return jsonError(404, "NOT_FOUND", "Image not found");
+    if (!record || !await this.canReadGuide(authorization, record.guideId)) {
+      return jsonError(404, "NOT_FOUND", "Image not found");
+    }
     const signed = await this.storage.issueDownload(record);
     return fetch(new URL(signed.downloadUrl, request.url));
   }

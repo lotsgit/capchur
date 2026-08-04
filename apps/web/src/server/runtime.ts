@@ -5,6 +5,8 @@ import {
 } from "./ai-description";
 import { createAiUsageRecorder } from "./ai-usage-repository";
 import { ExtensionApi, PersistenceApi } from "./api";
+import { CollaborationApi } from "./collaboration-api";
+import { createCollaborationRepository } from "./collaboration-repository";
 import { getDatabase } from "./db";
 import { ExtensionAuthorizationService } from "./extension-auth";
 import { ExportApi } from "./export-api";
@@ -16,6 +18,7 @@ import { createPersistenceRepository } from "./persistence-repository";
 const globalRuntime = globalThis as typeof globalThis & {
   capchurAiDescriptionApi?: Promise<AiDescriptionApi>;
   capchurAuth?: Promise<ReturnType<typeof createAuth>>;
+  capchurCollaborationApi?: Promise<CollaborationApi>;
   capchurExtensionApi?: Promise<ExtensionApi>;
   capchurExportApi?: Promise<ExportApi>;
   capchurExportService?: Promise<ExportService>;
@@ -67,10 +70,14 @@ export function getExtensionApi(): Promise<ExtensionApi> {
 
 async function createPersistenceApi(): Promise<PersistenceApi> {
   const database = await getDatabase();
+  const collaboration = createCollaborationRepository(database);
   return new PersistenceApi(
     await getWorkspaceAuthenticator(),
     createPersistenceRepository(database),
     createEnvironmentObjectStorage(),
+    Date.now,
+    undefined,
+    collaboration,
   );
 }
 
@@ -104,7 +111,15 @@ async function createExportRuntime(): Promise<{ api: ExportApi; service: ExportS
   const jobs = createExportJobRepository(database);
   const storage = createEnvironmentObjectStorage();
   return {
-    api: new ExportApi(authenticator, guides, jobs, storage),
+    api: new ExportApi(
+      authenticator,
+      guides,
+      jobs,
+      storage,
+      Date.now,
+      undefined,
+      createCollaborationRepository(database),
+    ),
     service: new ExportService(jobs, guides, storage),
   };
 }
@@ -117,4 +132,22 @@ export function getExportApi(): Promise<ExportApi> {
 export function getExportService(): Promise<ExportService> {
   globalRuntime.capchurExportService ??= createExportRuntime().then(({ service }) => service);
   return globalRuntime.capchurExportService;
+}
+
+async function createCollaborationApi(): Promise<CollaborationApi> {
+  const database = await getDatabase();
+  return new CollaborationApi(
+    await getWorkspaceAuthenticator(),
+    createCollaborationRepository(database),
+    createPersistenceRepository(database),
+    Date.now,
+    undefined,
+    undefined,
+    createEnvironmentObjectStorage(),
+  );
+}
+
+export function getCollaborationApi(): Promise<CollaborationApi> {
+  globalRuntime.capchurCollaborationApi ??= createCollaborationApi();
+  return globalRuntime.capchurCollaborationApi;
 }

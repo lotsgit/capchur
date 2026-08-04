@@ -10,6 +10,10 @@ import {
     ExtensionMessageSchema,
     ExportJobRequestSchema,
     ExportJobSchema,
+    GuideAccessSchema,
+    GuideCommentCreateSchema,
+    GuideRevisionRestoreSchema,
+    GuideShareCreateSchema,
     GuideUpdateRequestSchema,
     GuideWriteSchema,
     GuideSchema,
@@ -353,6 +357,21 @@ describe("guide domain contracts", () => {
             guide: write,
         }).success).toBe(true);
         expect(GuideUpdateRequestSchema.safeParse(write).success).toBe(false);
+    });
+
+    it("validates bounded collaboration mutations and rejects extra fields", () => {
+        expect(GuideAccessSchema.parse({ visibility: "workspace" })).toEqual({
+            visibility: "workspace",
+        });
+        expect(GuideAccessSchema.safeParse({ visibility: "public" }).success).toBe(false);
+        expect(GuideShareCreateSchema.safeParse({ expiresAt: null, token: "client-token" }).success)
+            .toBe(false);
+        expect(GuideCommentCreateSchema.safeParse({ body: " " }).success).toBe(false);
+        expect(GuideRevisionRestoreSchema.safeParse({
+            revisionId: requestId,
+            updatedAt: validGuide.updatedAt,
+        }).success).toBe(true);
+        expect(GuideRevisionRestoreSchema.safeParse({ revisionId: requestId }).success).toBe(false);
     });
 
     it("normalizes editable privacy and presentation metadata", () => {

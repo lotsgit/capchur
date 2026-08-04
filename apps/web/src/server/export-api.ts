@@ -7,6 +7,7 @@ import {
 } from "@capchur/contracts";
 
 import type { WorkspaceAuthenticator, WorkspacePrincipal } from "./auth";
+import type { CollaborationRepository } from "./collaboration-repository";
 import type { ExportJobRecord, ExportJobRepository } from "./export-job-repository";
 import type { ObjectStorage } from "./object-storage";
 import type { PersistenceRepository } from "./persistence-repository";
@@ -25,6 +26,7 @@ export class ExportApi {
 		private readonly storage: Pick<ObjectStorage, "issueDownload">,
 		private readonly now: () => number = Date.now,
 		private readonly createId: () => string = randomUUID,
+		private readonly collaboration?: Pick<CollaborationRepository, "getVisibility">,
 	) {}
 
 	private async authorize(request: Request, mutation: boolean): Promise<WorkspacePrincipal | Response> {
@@ -69,6 +71,10 @@ export class ExportApi {
 
 		if (request.method === "GET") {
 			const job = await this.jobs.get(authorization.workspaceId, jobId);
+			if (job && authorization.role !== "owner" && this.collaboration &&
+				await this.collaboration.getVisibility(authorization.workspaceId, job.guideId) !== "workspace") {
+				return jsonError(404, "NOT_FOUND", "Export job not found");
+			}
 			return job
 				? Response.json(await this.toPublicJob(job))
 				: jsonError(404, "NOT_FOUND", "Export job not found");

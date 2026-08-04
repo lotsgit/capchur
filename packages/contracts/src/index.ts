@@ -225,6 +225,67 @@ export const GuideUpdateRequestSchema = z.strictObject({
     guide: GuideWriteSchema,
 });
 
+export const GuideVisibilitySchema = z.enum(["private", "workspace"]);
+
+export const GuideAccessSchema = z.strictObject({
+    visibility: GuideVisibilitySchema,
+});
+
+export const GuideShareCreateSchema = z.strictObject({
+    expiresAt: TimestampSchema.nullable(),
+});
+
+export const GuideShareSchema = z.strictObject({
+    id: IdSchema,
+    guideId: IdSchema,
+    createdAt: TimestampSchema,
+    expiresAt: TimestampSchema.nullable(),
+    revokedAt: TimestampSchema.nullable(),
+});
+
+export const GuideShareCreatedSchema = GuideShareSchema.extend({
+    token: z.string().min(32).max(512),
+});
+
+export const GuideCommentCreateSchema = z.strictObject({
+    body: z.string().trim().min(1).max(2_000),
+});
+
+export const GuideCommentSchema = z.strictObject({
+    id: IdSchema,
+    guideId: IdSchema,
+    userId: z.string().min(1).max(512),
+    authorName: z.string().trim().min(1).max(200),
+    body: z.string().trim().min(1).max(2_000),
+    createdAt: TimestampSchema,
+});
+
+export const GuideRevisionSchema = z.strictObject({
+    id: IdSchema,
+    guideId: IdSchema,
+    actorUserId: z.string().min(1).max(512),
+    createdAt: TimestampSchema,
+    guide: GuideSchema,
+});
+
+export const GuideRevisionRestoreSchema = z.strictObject({
+    revisionId: IdSchema,
+    updatedAt: TimestampSchema,
+});
+
+export const GuideAuditEventSchema = z.strictObject({
+    id: IdSchema,
+    guideId: IdSchema,
+    actorUserId: z.string().min(1).max(512),
+    action: z.enum([
+        "visibility.changed",
+        "share.created",
+        "share.revoked",
+        "revision.restored",
+    ]),
+    createdAt: TimestampSchema,
+});
+
 export const AiDescriptionEnhancementRequestSchema = z.strictObject({
     consent: z.literal(true),
     deterministicDescription: z.string().trim().max(5_000),
@@ -515,6 +576,13 @@ export type GuideStep = z.infer<typeof GuideStepSchema>;
 export type Guide = z.infer<typeof GuideSchema>;
 export type GuideWrite = z.infer<typeof GuideWriteSchema>;
 export type GuideUpdateRequest = z.infer<typeof GuideUpdateRequestSchema>;
+export type GuideVisibility = z.infer<typeof GuideVisibilitySchema>;
+export type GuideAccess = z.infer<typeof GuideAccessSchema>;
+export type GuideShare = z.infer<typeof GuideShareSchema>;
+export type GuideShareCreated = z.infer<typeof GuideShareCreatedSchema>;
+export type GuideComment = z.infer<typeof GuideCommentSchema>;
+export type GuideRevision = z.infer<typeof GuideRevisionSchema>;
+export type GuideAuditEvent = z.infer<typeof GuideAuditEventSchema>;
 export type AiDescriptionEnhancementRequest = z.infer<typeof AiDescriptionEnhancementRequestSchema>;
 export type AiDescriptionProviderOutput = z.infer<typeof AiDescriptionProviderOutputSchema>;
 export type AiDescriptionEnhancementResponse = z.infer<typeof AiDescriptionEnhancementResponseSchema>;

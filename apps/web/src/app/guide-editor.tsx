@@ -24,6 +24,7 @@ import {
 } from "@/lib/guide-editor-state";
 import { loadGuideFixture } from "@/lib/guide-fixture";
 import { AccountControl } from "@/app/account-control";
+import { CollaborationPanel } from "@/app/collaboration-panel";
 
 type LoadState = "loading" | "ready" | "error";
 type GuideLoader = () => Promise<Guide>;
@@ -426,6 +427,14 @@ export function GuideEditor({
           </div>
         ) : (
           <div className="editor-empty"><FolderOpen size={28} /><h2>Select a step to edit</h2></div>
+        )}
+        {guideId && identity && (
+          <CollaborationPanel
+            guideId={guideId}
+            role={identity.role}
+            revision={savedRevision ?? guide.updatedAt}
+            onRestore={acceptGuide}
+          />
         )}
       </section>
     </main>
