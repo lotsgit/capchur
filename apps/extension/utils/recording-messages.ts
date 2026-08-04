@@ -1,8 +1,9 @@
 import {
     CONTRACT_VERSION,
     RecordingRequestMessageSchema,
+    type ActionCapture,
+    type CaptureActionType,
     type CapturedStep,
-    type ClickCapture,
     type RecordingRequestMessage,
     type RecordingResponseMessage,
     type RecordingSession,
@@ -77,13 +78,18 @@ async function handleRecordingMessage(
             return successResponse(message.requestId, currentSession);
         }
 
-        if (message.type === "capture.click") {
+        if (
+            message.type === "capture.click"
+            || message.type === "capture.input"
+            || message.type === "capture.select"
+            || message.type === "capture.submit"
+        ) {
             const normalizedSource = normalizeSource(source);
             if (!isMatchingPageSource(normalizedSource.url, message.capture.url)) {
                 return errorResponse(
                     message.requestId,
                     "INVALID_MESSAGE",
-                    "The click capture source is invalid.",
+                    "The action capture source is invalid.",
                 );
             }
 
@@ -94,6 +100,7 @@ async function handleRecordingMessage(
             const step = createCapturedStep(
                 currentSession.id,
                 currentSession.steps.length,
+                message.type.slice("capture.".length) as CaptureActionType,
                 message.capture,
                 createId(),
             );
@@ -268,6 +275,9 @@ function toStateCommand(message: RecordingRequestMessage): RecordingStateCommand
         case "recording.screenshot.retry":
             throw new Error("Review messages do not transition recording state.");
         case "capture.click":
+        case "capture.input":
+        case "capture.select":
+        case "capture.submit":
             throw new Error("Capture messages do not transition recording state.");
     }
 }
@@ -303,14 +313,15 @@ function errorResponse(
 function createCapturedStep(
     sessionId: string,
     sequence: number,
-    capture: ClickCapture,
+    action: CaptureActionType,
+    capture: ActionCapture,
     id: string,
 ): CapturedStep {
     return {
         id,
         sessionId,
         sequence,
-        action: "click",
+        action,
         ...capture,
         screenshot: null,
     };

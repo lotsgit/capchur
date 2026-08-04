@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S17 - Capture hardening and cross-browser support`
+**Current milestone:** `S18 - Security, reliability, and release`
 
-**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, resilient extension-to-cloud session sync, HTML, Markdown, PDF, and DOCX exports, opt-in server-side AI description enhancement, and controlled workspace collaboration with revocable links, comments, immutable revisions, conflict-aware restore, and sensitive audit events are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private objects locally; production adapters target PostgreSQL and S3-compatible storage.
+**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, hardened click/input/select/submit capture, cross-browser Chromium/Edge/Firefox packaging and E2E coverage, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, resilient extension-to-cloud session sync, HTML, Markdown, PDF, and DOCX exports, opt-in server-side AI description enhancement, and controlled workspace collaboration with revocable links, comments, immutable revisions, conflict-aware restore, and sensitive audit events are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private objects locally; production adapters target PostgreSQL and S3-compatible storage.
 
-**Last completed session:** `S16 - Sharing, collaboration, and history`
+**Last completed session:** `S17 - Capture hardening and cross-browser support`
 
-**Next action:** Complete S17 only. Harden capture behavior and validate supported Chrome, Edge, and Firefox workflows.
+**Next action:** Complete S18 only. Run the final security, reliability, accessibility, performance, privacy, packaging, and release gates.
 
 ## Product Goal
 
@@ -134,6 +134,7 @@ corepack --version
 git --version
 corepack pnpm install
 corepack pnpm run install:pdf-browser
+corepack pnpm run install:extension-browsers
 corepack pnpm run typecheck
 corepack pnpm run lint
 corepack pnpm run build
@@ -512,23 +513,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S17 - Capture Hardening And Cross-Browser Support
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Handle real-world browser complexity and package Chrome, Edge, and Firefox builds.
 
 **Tasks:**
 
-- [ ] Test navigation, multiple tabs, iframes, shadow DOM, SPAs, and delayed DOM updates.
-- [ ] Define explicit behavior for canvas/WebGL and protected browser pages.
-- [ ] Add input/select/submit support with privacy-safe value handling.
-- [ ] Run automated extension E2E tests across supported browsers.
-- [ ] Verify permission prompts and denied states.
+- [x] Test navigation, multiple tabs, iframes, shadow DOM, SPAs, and delayed DOM updates.
+- [x] Define explicit behavior for canvas/WebGL and protected browser pages.
+- [x] Add input/select/submit support with privacy-safe value handling.
+- [x] Run automated extension E2E tests across supported browsers.
+- [x] Verify permission prompts and denied states.
 
 **Acceptance:** Supported workflows pass the compatibility matrix; unsupported contexts explain limitations without data loss.
 
+**Validation evidence:** All 117 workspace tests passed; production-bundle capture E2E passed in Playwright Chromium, installed Microsoft Edge, and Playwright Firefox; Chromium MV3 and Firefox MV2 packages built with all-frame capture and browser-specific optional-origin permissions; Mozilla `web-ext lint` reported zero errors; repository typecheck, lint, production builds, and the high-severity dependency audit passed.
+
 ### S18 - Security, Reliability, And Release
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Prepare a production release with evidence.
 
@@ -545,27 +548,27 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ## Progress Summary
 
-| Session                | Status  | Commit / evidence | Notes                                                             |
-| ---------------------- | ------- | ----------------- | ----------------------------------------------------------------- |
-| S00 Workspace setup    | DONE    | `d7a0774`         | Baseline apps build successfully.                                 |
-| S01 Test and contracts | DONE    | This commit       | Runtime contracts and focused tests passed.                       |
-| S02 Recording state    | DONE    | This commit       | Persistent commands and restart recovery passed.                  |
-| S03 Popup controls     | DONE    | This commit       | Persisted controls and popup states passed.                       |
-| S04 Element analysis   | DONE    | This commit       | Deterministic privacy-safe metadata and locator fixtures passed.  |
-| S05 Click capture      | DONE    | This commit       | Five ordered clicks persist through a validated sender boundary.  |
-| S06 Screenshots        | DONE    | This commit       | Throttled screenshots and pixel-aligned metadata passed.          |
-| S07 Local review       | DONE    | This commit       | Persisted review mutations and archive round trips passed.        |
-| S08 Web editor         | DONE    | This commit       | Fixture editing and responsive workflow checks passed.            |
-| S09 Persistence API    | DONE    | This commit       | Transactional guides/sessions and signed image storage passed.    |
-| S10 Authentication     | DONE    | This commit       | Database sessions and workspace role isolation passed.            |
-| S11 Extension sync     | DONE    | This commit       | Resumable authenticated sync maps local sessions to guides.       |
-| S12 Complete editing   | DONE    | This commit       | Complete editing, privacy metadata, history, and autosave passed. |
-| S13 HTML/Markdown      | DONE    | This commit       | Portable bundles and irreversible redactions passed.              |
-| S14 PDF/DOCX           | DONE    | This commit       | Durable jobs and 50-step PDF/DOCX acceptance passed.              |
-| S15 AI descriptions    | DONE    | This commit       | Sanitized opt-in enhancement and deterministic fallback passed.   |
-| S16 Collaboration      | DONE    | This commit       | Revocable sharing, comments, revisions, conflicts, and audit.     |
-| S17 Hardening          | NEXT    | -                 | Cross-browser evidence.                                           |
-| S18 Release            | PLANNED | -                 | Final gate.                                                       |
+| Session                | Status | Commit / evidence | Notes                                                             |
+| ---------------------- | ------ | ----------------- | ----------------------------------------------------------------- |
+| S00 Workspace setup    | DONE   | `d7a0774`         | Baseline apps build successfully.                                 |
+| S01 Test and contracts | DONE   | This commit       | Runtime contracts and focused tests passed.                       |
+| S02 Recording state    | DONE   | This commit       | Persistent commands and restart recovery passed.                  |
+| S03 Popup controls     | DONE   | This commit       | Persisted controls and popup states passed.                       |
+| S04 Element analysis   | DONE   | This commit       | Deterministic privacy-safe metadata and locator fixtures passed.  |
+| S05 Click capture      | DONE   | This commit       | Five ordered clicks persist through a validated sender boundary.  |
+| S06 Screenshots        | DONE   | This commit       | Throttled screenshots and pixel-aligned metadata passed.          |
+| S07 Local review       | DONE   | This commit       | Persisted review mutations and archive round trips passed.        |
+| S08 Web editor         | DONE   | This commit       | Fixture editing and responsive workflow checks passed.            |
+| S09 Persistence API    | DONE   | This commit       | Transactional guides/sessions and signed image storage passed.    |
+| S10 Authentication     | DONE   | This commit       | Database sessions and workspace role isolation passed.            |
+| S11 Extension sync     | DONE   | This commit       | Resumable authenticated sync maps local sessions to guides.       |
+| S12 Complete editing   | DONE   | This commit       | Complete editing, privacy metadata, history, and autosave passed. |
+| S13 HTML/Markdown      | DONE   | This commit       | Portable bundles and irreversible redactions passed.              |
+| S14 PDF/DOCX           | DONE   | This commit       | Durable jobs and 50-step PDF/DOCX acceptance passed.              |
+| S15 AI descriptions    | DONE   | This commit       | Sanitized opt-in enhancement and deterministic fallback passed.   |
+| S16 Collaboration      | DONE   | This commit       | Revocable sharing, comments, revisions, conflicts, and audit.     |
+| S17 Hardening          | DONE   | This commit       | Hardened actions, explicit limits, and cross-browser evidence.    |
+| S18 Release            | NEXT   | -                 | Final gate.                                                       |
 
 ## Decision Log
 
@@ -594,6 +597,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-04 | Persist immutable guide snapshots in database-backed export jobs and store completed PDF/DOCX artifacts in private object storage.                                              | Long exports must survive process restarts, remain reproducible while guides change, and never expose private source images or object keys.                     | Owners enqueue/cancel/retry, workspace members may poll/download, workers use leases and three bounded attempts, artifacts expire after 24 hours, polling retriggers recovery, and PDF hosts must install Playwright Chromium.                                                          |
 | 2026-08-04 | Keep AI description enhancement optional behind an authenticated server boundary with minimized redacted input and deterministic fallback.                                      | Recording and editing must remain reliable without a provider, while provider secrets, sensitive page data, and untrusted page instructions must stay isolated. | Owners opt in per editing session; providers receive only bounded step text under a fixed no-tools prompt; validated output may replace the description; timeouts, failures, invalid output, configuration absence, and limits preserve the original text.                              |
 | 2026-08-04 | Default guides to private access and model workspace visibility, hashed revocable links, comments, immutable revisions, and audit events as server-owned collaboration records. | Collaboration must not weaken workspace isolation or expose reusable link credentials, and concurrent restore must preserve newer work.                         | Members read and comment only when a guide is workspace-visible; raw link tokens are returned once and revalidated on every guide or image request; editor saves create snapshots; restores use the existing optimistic revision precondition; owners manage sharing and audit history. |
+| 2026-08-04 | Use delegated, value-free action capture with per-origin user grants and browser-specific WXT packages.                                                                         | Real workflows cross SPA routes, tabs, frames, and control types, while privacy and browser stores require explicit access and data-use declarations.           | Click, committed input, select, and submit events share one strict payload; new tabs are enabled by user gesture; unsupported surfaces preserve the session; Chrome/Edge use Chromium MV3 and Firefox 140+ uses a consent-declaring MV2 package.                                        |
 
 ## Known Risks
 
@@ -601,33 +605,35 @@ Record decisions that affect more than one module or future session. Do not sile
 | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | The 2026-08-03 audit reports one low-severity esbuild advisory affecting local Windows development servers through Vite/Vitest.               | Open                     | Keep development servers bound to localhost and adopt esbuild 0.28.1 or later when parent tool ranges support it; do not force an unsupported 0.x override.  |
 | The 2026-08-04 high-severity `fast-uri` and `brace-expansion` advisories in development tooling were resolved with patch-only pnpm overrides. | Resolved                 | Pin `fast-uri` 3.1.5, `brace-expansion` 1.1.18, and `brace-expansion` 5.0.9; 95 tests, typecheck, lint, production builds, and the high-severity audit pass. |
-| Browser extensions cannot inspect native desktop applications or protected browser pages.                                                     | Accepted for browser MVP | Explain unsupported pages in S03/S17; evaluate a separate desktop recorder only after browser release.                                                       |
-| Canvas/WebGL applications provide weak semantic element data.                                                                                 | Open                     | Define fallback behavior and possible OCR investigation in S17.                                                                                              |
-| Cross-origin frames and closed shadow roots limit DOM access.                                                                                 | Open                     | Test and document explicit behavior in S17 without broadening permissions unnecessarily.                                                                     |
+| Browser extensions cannot inspect native desktop applications or protected browser pages.                                                     | Accepted for browser MVP | Protected pages are disabled and explained; evaluate a separate desktop recorder only after browser release.                                                 |
+| Canvas/WebGL applications provide weak semantic element data.                                                                                 | Accepted for browser MVP | Skip semantic capture, explain the limitation without ending the session, and evaluate OCR only after browser release.                                       |
+| Cross-origin frames and closed shadow roots limit DOM access.                                                                                 | Accepted for browser MVP | Capture permitted frames and open shadow roots; require an explicit origin grant where possible and explain inaccessible contexts without data loss.         |
+| Mozilla `web-ext lint` flags generated Zod `Function` constructors and React DOM internals in the packaged extension.                         | Open                     | S18 must inspect the production bundle and upstream behavior before store submission; application source does not use dynamic execution or unsafe HTML APIs. |
 
 ## Session Completion Record
 
 Append one concise row whenever a roadmap session is completed.
 
-| Date       | Session | Summary                                                                                                                                                                                    | Validation                                                                                                                                                                               | Commit      |
-| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 2026-07-31 | S00     | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation.                                                                                           | Typecheck, lint, and build passed at setup.                                                                                                                                              | `d7a0774`   |
-| 2026-08-03 | S01     | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests.                                                                       | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks.                                                                                         | This commit |
-| 2026-08-03 | S02     | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling.                                                                 | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered.                                                                                   | This commit |
-| 2026-08-03 | S03     | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states.                                      | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected.                                                                                                  | This commit |
-| 2026-08-03 | S04     | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection.                                                                     | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded.                                                                                        | This commit |
-| 2026-08-03 | S05     | Added optional-origin click capture, composed-path element analysis, strict capture messages, sender validation, and ordered worker persistence.                                           | 43 tests, typecheck, lint, and production builds passed; emitted permissions inspected and existing audit findings remain recorded.                                                      | This commit |
-| 2026-08-03 | S06     | Added throttled active-tab PNG capture, separate IndexedDB image storage, actual-image coordinate conversion, and durable failure fallback.                                                | 53 tests, typecheck, lint, and production builds passed; zoom, scrolling, clipping, rate limiting, and capture failure covered.                                                          | This commit |
-| 2026-08-03 | S07     | Added an extension review page with highlighted screenshots, persisted editing, ordering, retry, deletion, clearing, and portable JSON archives.                                           | 59 tests, typecheck, lint, and production builds passed; archive round trips and review mutations covered.                                                                               | This commit |
-| 2026-08-03 | S08     | Added independent guide contracts and a responsive fixture-backed editor with navigation, step ordering, selected-step editing, media annotations, and explicit UI states.                 | 66 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser checks passed.                                                                                | This commit |
-| 2026-08-03 | S09     | Added transactional guide and captured-session persistence, authenticated validated APIs, restart-safe local storage, production PostgreSQL/S3 adapters, and signed image flows.           | 72 tests, migration check, typecheck, lint, production builds, and dependency audit passed; restart, authorization, rollback, and object consistency covered.                            | This commit |
-| 2026-08-03 | S10     | Replaced transitional bearer identities with Better Auth users and sessions, protected editor and auth flows, owner/member workspaces, and workspace-scoped persistence authorization.     | 73 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser flows passed; expiry, revocation, role enforcement, and cross-workspace isolation covered.    | This commit |
-| 2026-08-03 | S11     | Added extension-safe browser authorization, a persistent resumable upload queue, idempotent session-to-guide mapping, partial screenshot sync, and mapped-guide handoff.                   | 79 tests, typecheck, lint, production builds, manifest inspection, and desktop/mobile browser checks passed; retry, conflict, expiry, and one-time grant behavior covered.               | This commit |
-| 2026-08-04 | S12     | Added complete guide presentation, manual step, crop, zoom, highlight, redaction, history, and conflict-aware autosave tools without mutating source images.                               | 85 tests, typecheck, lint, migration generation, and production builds passed; stale writes, immutable metadata, privacy controls, and responsive editing covered.                       | This commit |
-| 2026-08-04 | S13     | Added a framework-independent export document plus accessible HTML and portable Markdown bundles with locally referenced, annotation-rendered PNG assets.                                  | 88 tests, typecheck, lint, and production builds passed; escaping, ordering, image references, highlights, crop translation, and irreversible redactions covered.                        | This commit |
-| 2026-08-04 | S14     | Added Playwright PDF and OpenXML DOCX rendering through durable workspace-scoped jobs with retries, cancellation, expiration, private artifacts, polling, and signed downloads.            | 95 tests, typecheck, lint, migration generation, production builds, dependency audit, 50-step format validation, and responsive browser geometry checks completed.                       | This commit |
-| 2026-08-04 | S15     | Added opt-in server-side AI description enhancement with strict minimized contracts, sensitive-text redaction, prompt isolation, structured output, fallback, limits, and usage costs.     | 107 tests, typecheck, lint, migration generation, production builds, and desktop/mobile browser geometry checks passed; provider failure and timeout preserve deterministic text.        | This commit |
-| 2026-08-04 | S16     | Added private/workspace access, hashed revocable links and shared media, member comments, immutable revisions, conflict-aware restore, sensitive audit events, and collaboration controls. | 110 tests, typecheck, lint, migration generation, and production builds passed; immediate revocation, authorization, stale restore rejection, and audit coverage are integration-tested. | This commit |
+| Date       | Session | Summary                                                                                                                                                                                              | Validation                                                                                                                                                                               | Commit      |
+| ---------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 2026-07-31 | S00     | Created workspace, extension, web app, contracts package, VS Code tasks, and root documentation.                                                                                                     | Typecheck, lint, and build passed at setup.                                                                                                                                              | `d7a0774`   |
+| 2026-08-03 | S01     | Added strict versioned runtime contracts, inferred shared types, application contract boundaries, and focused tests.                                                                                 | 11 tests, typecheck, lint, and production builds passed; audit findings recorded as known risks.                                                                                         | This commit |
+| 2026-08-03 | S02     | Added a pure recording state machine, validated extension storage adapter, and serialized service-worker command handling.                                                                           | 15 tests, typecheck, lint, and production builds passed; restart and corrupted-state recovery covered.                                                                                   | This commit |
+| 2026-08-03 | S03     | Replaced the starter popup with accessible persisted recording controls, status metrics, and explicit unavailable, denied, loading, and error states.                                                | 21 tests, typecheck, lint, and production builds passed; emitted permissions inspected.                                                                                                  | This commit |
+| 2026-08-03 | S04     | Added pure element naming, descriptions, locator candidates, shadow paths, and explicit privacy and support rejection.                                                                               | 36 tests, typecheck, lint, and production builds passed; existing audit findings remain recorded.                                                                                        | This commit |
+| 2026-08-03 | S05     | Added optional-origin click capture, composed-path element analysis, strict capture messages, sender validation, and ordered worker persistence.                                                     | 43 tests, typecheck, lint, and production builds passed; emitted permissions inspected and existing audit findings remain recorded.                                                      | This commit |
+| 2026-08-03 | S06     | Added throttled active-tab PNG capture, separate IndexedDB image storage, actual-image coordinate conversion, and durable failure fallback.                                                          | 53 tests, typecheck, lint, and production builds passed; zoom, scrolling, clipping, rate limiting, and capture failure covered.                                                          | This commit |
+| 2026-08-03 | S07     | Added an extension review page with highlighted screenshots, persisted editing, ordering, retry, deletion, clearing, and portable JSON archives.                                                     | 59 tests, typecheck, lint, and production builds passed; archive round trips and review mutations covered.                                                                               | This commit |
+| 2026-08-03 | S08     | Added independent guide contracts and a responsive fixture-backed editor with navigation, step ordering, selected-step editing, media annotations, and explicit UI states.                           | 66 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser checks passed.                                                                                | This commit |
+| 2026-08-03 | S09     | Added transactional guide and captured-session persistence, authenticated validated APIs, restart-safe local storage, production PostgreSQL/S3 adapters, and signed image flows.                     | 72 tests, migration check, typecheck, lint, production builds, and dependency audit passed; restart, authorization, rollback, and object consistency covered.                            | This commit |
+| 2026-08-03 | S10     | Replaced transitional bearer identities with Better Auth users and sessions, protected editor and auth flows, owner/member workspaces, and workspace-scoped persistence authorization.               | 73 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser flows passed; expiry, revocation, role enforcement, and cross-workspace isolation covered.    | This commit |
+| 2026-08-03 | S11     | Added extension-safe browser authorization, a persistent resumable upload queue, idempotent session-to-guide mapping, partial screenshot sync, and mapped-guide handoff.                             | 79 tests, typecheck, lint, production builds, manifest inspection, and desktop/mobile browser checks passed; retry, conflict, expiry, and one-time grant behavior covered.               | This commit |
+| 2026-08-04 | S12     | Added complete guide presentation, manual step, crop, zoom, highlight, redaction, history, and conflict-aware autosave tools without mutating source images.                                         | 85 tests, typecheck, lint, migration generation, and production builds passed; stale writes, immutable metadata, privacy controls, and responsive editing covered.                       | This commit |
+| 2026-08-04 | S13     | Added a framework-independent export document plus accessible HTML and portable Markdown bundles with locally referenced, annotation-rendered PNG assets.                                            | 88 tests, typecheck, lint, and production builds passed; escaping, ordering, image references, highlights, crop translation, and irreversible redactions covered.                        | This commit |
+| 2026-08-04 | S14     | Added Playwright PDF and OpenXML DOCX rendering through durable workspace-scoped jobs with retries, cancellation, expiration, private artifacts, polling, and signed downloads.                      | 95 tests, typecheck, lint, migration generation, production builds, dependency audit, 50-step format validation, and responsive browser geometry checks completed.                       | This commit |
+| 2026-08-04 | S15     | Added opt-in server-side AI description enhancement with strict minimized contracts, sensitive-text redaction, prompt isolation, structured output, fallback, limits, and usage costs.               | 107 tests, typecheck, lint, migration generation, production builds, and desktop/mobile browser geometry checks passed; provider failure and timeout preserve deterministic text.        | This commit |
+| 2026-08-04 | S16     | Added private/workspace access, hashed revocable links and shared media, member comments, immutable revisions, conflict-aware restore, sensitive audit events, and collaboration controls.           | 110 tests, typecheck, lint, migration generation, and production builds passed; immediate revocation, authorization, stale restore rejection, and audit coverage are integration-tested. | This commit |
+| 2026-08-04 | S17     | Added value-free input/select/submit capture, resilient reinjection, new-tab enablement, explicit unsupported-context behavior, browser-specific manifests, and production-bundle cross-browser E2E. | 117 tests, typecheck, lint, production builds, Chromium/Edge/Firefox E2E, dual-browser package builds, zero-error Mozilla lint, and high-severity audit passed.                          | This commit |
 
 ## Scope Changes
 

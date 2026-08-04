@@ -13,6 +13,7 @@ import {
 } from './recording-client';
 
 type LoadState = 'loading' | 'ready' | 'error';
+type BusyCommand = Exclude<RecordingCommand, 'open-session'> | 'enable-page';
 
 const statusLabels: Record<RecordingSession['status'], string> = {
   recording: 'Recording',
@@ -23,7 +24,7 @@ const statusLabels: Record<RecordingSession['status'], string> = {
 function App() {
   const [session, setSession] = useState<RecordingSession | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [busyCommand, setBusyCommand] = useState<RecordingCommand | null>(null);
+  const [busyCommand, setBusyCommand] = useState<BusyCommand | null>(null);
   const [pageAvailability, setPageAvailability] = useState<PageAvailability | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -79,25 +80,7 @@ function App() {
 
     try {
       if (command === 'start' || command === 'resume') {
-        const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!activeTab?.url) {
-          throw new Error('Capchur cannot access this tab. Open the extension again to grant access.');
-        }
-
-        const granted = await browser.permissions.request({
-          origins: [getPageOriginPattern(activeTab.url)],
-        });
-        if (!granted) {
-          throw new Error('Page access was denied. Capchur did not start recording.');
-        }
-
-        if (activeTab.id === undefined) {
-          throw new Error('The active tab is unavailable. Capchur did not start recording.');
-        }
-        await browser.scripting.executeScript({
-          target: { tabId: activeTab.id },
-          files: ['/content-scripts/content.js'],
-        });
+        await enableActiveTab('Capchur did not start recording.');
       }
 
       const nextSession = await runRecordingCommand(command, session, (message) =>
@@ -110,6 +93,37 @@ function App() {
     } finally {
       setBusyCommand(null);
     }
+  }
+
+  async function enableCurrentPage() {
+    setBusyCommand('enable-page');
+    setErrorMessage(null);
+    try {
+      await enableActiveTab('The current tab was not enabled. Your recording is still active.');
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+    } finally {
+      setBusyCommand(null);
+    }
+  }
+
+  async function enableActiveTab(deniedSuffix: string) {
+    const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab?.url || activeTab.id === undefined) {
+      throw new Error(`Capchur cannot access this tab. ${deniedSuffix}`);
+    }
+
+    const granted = await browser.permissions.request({
+      origins: [getPageOriginPattern(activeTab.url)],
+    });
+    if (!granted) {
+      throw new Error(`Page access was denied. ${deniedSuffix}`);
+    }
+
+    await browser.scripting.executeScript({
+      target: { tabId: activeTab.id, allFrames: true },
+      files: ['/content-scripts/content.js'],
+    });
   }
 
   const pageBlocked = pageAvailability?.status !== 'available';
@@ -166,6 +180,13 @@ function App() {
         </div>
       )}
 
+      {session?.status === 'recording' && (
+        <div className="notice" role="note">
+          <strong>Capture limits</strong>
+          <p>Canvas, WebGL, protected pages, and cross-origin frames are not captured. Your saved session continues when an action is skipped.</p>
+        </div>
+      )}
+
       {(loadState === 'error' || errorMessage) && (
         <div className="notice notice--error" role="alert">
           <strong>Something went wrong</strong>
@@ -195,6 +216,17 @@ function App() {
             onClick={() => void runCommand('start')}
           >
             {busyCommand === 'start' ? 'Starting...' : 'Start recording'}
+          </button>
+        )}
+
+        {session?.status === 'recording' && (
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={isBusy || pageBlocked}
+            onClick={() => void enableCurrentPage()}
+          >
+            {busyCommand === 'enable-page' ? 'Enabling...' : 'Enable this tab'}
           </button>
         )}
 

@@ -1,5 +1,7 @@
 import type { ElementMetadata } from "@capchur/contracts";
 
+export type SupportedCaptureAction = "click" | "input" | "select" | "submit";
+
 export type RejectedElementReason = "sensitive" | "unsupported";
 
 export type ElementAnalysis =
@@ -197,14 +199,16 @@ const getNearbyContext = (element: Element): string | undefined => {
     return undefined;
 };
 
-export const getElementName = (element: Element): string | undefined =>
-    getAriaName(element) ??
-    getLabelText(element) ??
-    normalizeText(element.textContent) ??
-    normalizeText(element.getAttribute("alt")) ??
-    normalizeText(element.getAttribute("title")) ??
-    normalizeText(element.getAttribute("placeholder")) ??
-    getNearbyContext(element);
+export const getElementName = (element: Element): string | undefined => {
+    const canUseTextContent = !element.matches("input, select, textarea");
+    return getAriaName(element) ??
+        getLabelText(element) ??
+        (canUseTextContent ? normalizeText(element.textContent) : undefined) ??
+        normalizeText(element.getAttribute("alt")) ??
+        normalizeText(element.getAttribute("title")) ??
+        normalizeText(element.getAttribute("placeholder")) ??
+        getNearbyContext(element);
+};
 
 export const getElementRole = (element: Element): string | undefined => {
     const explicitRole = normalizeText(element.getAttribute("role"));
@@ -307,14 +311,31 @@ export const describeElement = (
     element: Element,
     accessibleName = getElementName(element),
     role = getElementRole(element),
+    action: SupportedCaptureAction = "click",
 ): string => {
     const noun = getDescriptionNoun(element, role);
+    if (action === "input") {
+        return accessibleName
+            ? `Enter text in the ${accessibleName} ${noun}`
+            : `Enter text in the ${noun}`;
+    }
+    if (action === "select") {
+        return accessibleName
+            ? `Select an option from the ${accessibleName} ${noun}`
+            : `Select an option from the ${noun}`;
+    }
+    if (action === "submit") {
+        return accessibleName ? `Submit the ${accessibleName} form` : "Submit the form";
+    }
     return accessibleName
         ? `Click the ${accessibleName} ${noun}`
         : `Click the ${noun}`;
 };
 
-export const analyzeElement = (target: Element): ElementAnalysis => {
+export const analyzeElement = (
+    target: Element,
+    action: SupportedCaptureAction = "click",
+): ElementAnalysis => {
     const element = resolveTarget(target);
 
     if (isSensitiveElement(element)) {
@@ -337,7 +358,7 @@ export const analyzeElement = (target: Element): ElementAnalysis => {
 
     return {
         supported: true,
-        description: describeElement(element, accessibleName, role),
+        description: describeElement(element, accessibleName, role, action),
         metadata,
     };
 };

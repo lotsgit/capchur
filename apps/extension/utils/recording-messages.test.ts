@@ -217,6 +217,33 @@ describe("recording service-worker messages", () => {
         );
     });
 
+    it("persists input, select, and submit actions in order", async () => {
+        const storageArea = new FakeStorageArea();
+        const ids = [sessionId, ...stepIds.slice(0, 3)];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            { now: () => 300, createId: () => ids.shift()! },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+
+        for (const [index, action] of ["input", "select", "submit"].entries()) {
+            await handler({
+                version: CONTRACT_VERSION,
+                type: `capture.${action}` as "capture.input" | "capture.select" | "capture.submit",
+                requestId: stepIds[index],
+                capture: clickCapture,
+            }, clickCapture.url);
+        }
+
+        expect(storageArea.values.recordingSession).toMatchObject({
+            steps: [
+                { action: "input", sequence: 0 },
+                { action: "select", sequence: 1 },
+                { action: "submit", sequence: 2 },
+            ],
+        });
+    });
+
     it("rejects captures whose runtime sender does not match the page URL", async () => {
         const storageArea = new FakeStorageArea();
         const handler = createRecordingMessageHandler(

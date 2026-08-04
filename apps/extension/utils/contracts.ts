@@ -13,6 +13,8 @@ export {
 } from "@capchur/contracts";
 
 export type {
+    ActionCapture,
+    CaptureActionType,
     CapturedStep,
     ClickCapture,
     ExtensionMessage,

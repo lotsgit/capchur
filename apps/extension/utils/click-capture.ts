@@ -1,4 +1,7 @@
-import { analyzeElement } from "@capchur/capture-core";
+import {
+    analyzeElement,
+    type SupportedCaptureAction,
+} from "@capchur/capture-core";
 import {
     CONTRACT_VERSION,
     RecordingRequestMessageSchema,
@@ -10,38 +13,66 @@ type SendMessage = (message: RecordingRequestMessage) => Promise<unknown>;
 const recentEvents = new WeakSet<Event>();
 const installationKey = "__capchurClickCaptureInstalledV1";
 
+interface CaptureInstallationState {
+    sendMessage: SendMessage;
+}
+
 export function installClickCapture(targetWindow: Window, sendMessage: SendMessage): void {
     const installationState = targetWindow as Window & Record<string, unknown>;
-    if (installationState[installationKey] === true) {
+    const existingState = installationState[installationKey];
+    if (isCaptureInstallationState(existingState)) {
+        existingState.sendMessage = sendMessage;
         return;
     }
 
-    installationState[installationKey] = true;
-    targetWindow.addEventListener("click", (event) => {
+    const state: CaptureInstallationState = { sendMessage };
+    installationState[installationKey] = state;
+    const capture = (event: Event, action: SupportedCaptureAction): void => {
         if (recentEvents.has(event)) {
             return;
         }
         recentEvents.add(event);
 
-        const message = createClickCaptureMessage(event, targetWindow);
+        const message = createActionCaptureMessage(event, targetWindow, action);
         if (message) {
-            void sendMessage(message).catch(() => undefined);
+            void state.sendMessage(message).catch(() => undefined);
+        }
+    };
+
+    targetWindow.addEventListener("click", (event) => capture(event, "click"), { capture: true });
+    targetWindow.addEventListener("change", (event) => {
+        const target = getEventElement(event);
+        if (target?.matches("select")) {
+            capture(event, "select");
+        } else if (target?.matches("textarea, input:not([type]), input[type='text'], input[type='search'], input[type='email'], input[type='url'], input[type='tel'], input[type='number'], input[type='date'], input[type='time'], input[type='month'], input[type='week']")) {
+            capture(event, "input");
         }
     }, { capture: true });
+    targetWindow.addEventListener("submit", (event) => capture(event, "submit"), { capture: true });
 }
 
 export function createClickCaptureMessage(
     event: Event,
     targetWindow: Window,
 ): RecordingRequestMessage | null {
-    const element = event.composedPath().find(
-        (candidate): candidate is Element => candidate instanceof Element,
-    );
+    return createActionCaptureMessage(event, targetWindow, "click");
+}
+
+export function createActionCaptureMessage(
+    event: Event,
+    targetWindow: Window,
+    action: SupportedCaptureAction,
+): RecordingRequestMessage | null {
+    const element = getEventElement(event);
     if (!element || element.closest("[data-capchur-ui]") || !isVisible(element, targetWindow)) {
         return null;
     }
 
-    const analysis = analyzeElement(element);
+    if (action === "click" && element.closest("select, textarea, input:not([type='checkbox']):not([type='radio']), button[type='submit'], input[type='submit']")) {
+        return null;
+    }
+
+    const analysis = analyzeElement(element, action);
     if (!analysis.supported) {
         return null;
     }
@@ -50,7 +81,7 @@ export function createClickCaptureMessage(
     const visualViewport = targetWindow.visualViewport;
     const message = {
         version: CONTRACT_VERSION,
-        type: "capture.click",
+        type: `capture.${action}`,
         requestId: crypto.randomUUID(),
         capture: {
             timestamp: Date.now(),
@@ -90,6 +121,12 @@ export function createClickCaptureMessage(
     return result.success ? result.data : null;
 }
 
+function getEventElement(event: Event): Element | null {
+    return event.composedPath().find(
+        (candidate): candidate is Element => candidate instanceof Element,
+    ) ?? null;
+}
+
 function isVisible(element: Element, targetWindow: Window): boolean {
     const rect = element.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0 || element.hasAttribute("hidden")) {
@@ -98,4 +135,8 @@ function isVisible(element: Element, targetWindow: Window): boolean {
 
     const style = targetWindow.getComputedStyle(element);
     return style.display !== "none" && style.visibility !== "hidden";
+}
+
+function isCaptureInstallationState(value: unknown): value is CaptureInstallationState {
+    return typeof value === "object" && value !== null && "sendMessage" in value;
 }

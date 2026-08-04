@@ -82,7 +82,7 @@ export const CapturedStepSchema = z.strictObject({
     highlight: HighlightMetadataSchema,
 });
 
-export const ClickCaptureSchema = z.strictObject({
+export const ActionCaptureSchema = z.strictObject({
     timestamp: TimestampSchema,
     url: HttpUrlSchema,
     pageTitle: z.string().trim().max(1_000),
@@ -91,6 +91,8 @@ export const ClickCaptureSchema = z.strictObject({
     viewport: ViewportSchema,
     highlight: ViewportHighlightMetadataSchema,
 });
+
+export const ClickCaptureSchema = ActionCaptureSchema;
 
 export const RecordingStatusSchema = z.enum([
     "recording",
@@ -466,7 +468,22 @@ export const RecordingRequestMessageSchema = z.discriminatedUnion("type", [
     z.strictObject({
         ...MessageBaseShape,
         type: z.literal("capture.click"),
-        capture: ClickCaptureSchema,
+        capture: ActionCaptureSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("capture.input"),
+        capture: ActionCaptureSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("capture.select"),
+        capture: ActionCaptureSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
+        type: z.literal("capture.submit"),
+        capture: ActionCaptureSchema,
     }),
 ]);
 
@@ -554,6 +571,7 @@ export const ExtensionMessageSchema = z.union([
 export type CaptureActionType = z.infer<typeof CaptureActionTypeSchema>;
 export type ElementRect = z.infer<typeof ElementRectSchema>;
 export type ElementMetadata = z.infer<typeof ElementMetadataSchema>;
+export type ActionCapture = z.infer<typeof ActionCaptureSchema>;
 export type Viewport = z.infer<typeof ViewportSchema>;
 export type ScreenshotMetadata = z.infer<typeof ScreenshotMetadataSchema>;
 export type HighlightMetadata = z.infer<typeof HighlightMetadataSchema>;

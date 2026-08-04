@@ -75,6 +75,44 @@ describe("element naming and descriptions", () => {
             description: "Click the button",
         });
     });
+
+    it("describes input, select, and submit actions without values", () => {
+        document.body.innerHTML = `
+            <label for="name">Display name</label><input id="name" value="Private value">
+            <select aria-label="Workspace"><option selected>Secret option</option></select>
+            <form aria-label="Profile"></form>
+        `;
+
+        expect(analyzeElement(document.querySelector("input")!, "input")).toMatchObject({
+            supported: true,
+            description: "Enter text in the Display name textbox",
+        });
+        expect(analyzeElement(document.querySelector("select")!, "select")).toMatchObject({
+            supported: true,
+            description: "Select an option from the Workspace combobox",
+        });
+        expect(analyzeElement(document.querySelector("form")!, "submit")).toMatchObject({
+            supported: true,
+            description: "Submit the Profile form",
+        });
+    });
+
+    it("does not use option or textarea content as an unlabeled control name", () => {
+        document.body.innerHTML = `
+            <select><option selected>Private option</option></select>
+            <textarea>Private initial text</textarea>
+        `;
+
+        const results = [
+            analyzeElement(document.querySelector("select")!, "select"),
+            analyzeElement(document.querySelector("textarea")!, "input"),
+        ];
+        expect(results).toMatchObject([
+            { supported: true, description: "Select an option from the combobox" },
+            { supported: true, description: "Enter text in the textbox" },
+        ]);
+        expect(JSON.stringify(results)).not.toMatch(/Private option|Private initial text/);
+    });
 });
 
 describe("locator candidates", () => {

@@ -259,6 +259,24 @@ describe("extension message contracts", () => {
         ).toBe(false);
     });
 
+    it("accepts privacy-safe input, select, and submit captures", () => {
+        for (const type of ["capture.input", "capture.select", "capture.submit"]) {
+            expect(RecordingRequestMessageSchema.safeParse({
+                version: CONTRACT_VERSION,
+                type,
+                requestId,
+                capture: validClickCapture,
+            }).success).toBe(true);
+        }
+
+        expect(RecordingRequestMessageSchema.safeParse({
+            version: CONTRACT_VERSION,
+            type: "capture.input",
+            requestId,
+            capture: { ...validClickCapture, value: "private text" },
+        }).success).toBe(false);
+    });
+
     it("rejects screenshot coordinates from an untrusted click capture", () => {
         expect(ClickCaptureSchema.safeParse({
             ...validClickCapture,
