@@ -55,7 +55,7 @@ textarea { resize: vertical; }
 .branding-fields label { display: grid; gap: 5px; }
 .branding-fields input[type="color"] { min-height: 32px; padding: 2px; }
 .steps-heading { padding: 20px 22px 12px; }
-.eyebrow { margin: 0 0 3px; color: #777d76; font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.eyebrow { margin: 0 0 3px; color: var(--muted); font-size: 9px; font-weight: 850; text-transform: uppercase; }
 .steps-heading h2 { font-size: 19px; }
 .icon-button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); }
 .step-list { display: grid; gap: 7px; margin: 0; padding: 0 12px 24px; list-style: none; }

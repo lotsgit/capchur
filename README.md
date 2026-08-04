@@ -40,10 +40,18 @@ In VS Code, use **Terminal > Run Task** and select `Capchur: Web dev` or `Capchu
 ## Validate
 
 ```powershell
+corepack pnpm run test
 corepack pnpm run typecheck
 corepack pnpm run lint
 corepack pnpm run build
 ```
+
+Production release evidence, environment requirements, browser packages, accessibility and
+performance budgets, backup rehearsal, and rollback sign-off are in
+[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md). Security and privacy operations are
+defined in [docs/SECURITY_THREAT_MODEL.md](docs/SECURITY_THREAT_MODEL.md),
+[docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md), and
+[docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md).
 
 ## Structure
 

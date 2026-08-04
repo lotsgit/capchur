@@ -1,0 +1,34 @@
+# Capchur Security Threat Model
+
+Last reviewed: 2026-08-04. Release: 0.1.0.
+
+## Scope And Assets
+
+This model covers the extension, authenticated API, PostgreSQL data, private object storage, sharing, exports, and optional AI enhancement. Protected assets are account credentials, extension tokens, recordings, screenshots, guides, share tokens, export artifacts, provider credentials, and audit records.
+
+Trust boundaries are the page-to-content-script boundary, extension messaging, extension-to-API transport, browser and web authentication, API-to-database/object-storage access, revocable public links, export rendering, and the optional AI provider request.
+
+## Threats And Controls
+
+| Boundary                         | Principal threats                                                                       | Required controls                                                                                                                                                                   | Residual risk / disposition                                                                                                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page to extension                | Malicious DOM values, forged events, sensitive-field capture, oversized payloads        | Delegated supported events; strict shared schemas; value-free input/select capture; password/payment rejection; worker-owned IDs and ordering                                       | Canvas, closed shadow roots, and protected pages are unsupported and explained without ending a session; accepted for browser MVP                                                   |
+| Extension lifecycle and messages | Forged senders, stale MV3 memory, over-broad access, token exposure                     | Sender URL validation; persisted serialized state; per-origin optional grants; least-privilege permissions; browser-identity authorization; hashed, expiring server tokens          | A compromised browser profile can access locally stored captures; users must protect the profile                                                                                    |
+| Authenticated API                | Broken object authorization, replay, injection, malformed input, cross-workspace access | Runtime validation; workspace-scoped repositories; owner/member authorization; one-time extension codes; expiring sessions; Drizzle parameterization; generic client errors         | Credential compromise remains possible; revoke sessions/tokens and follow the incident runbook                                                                                      |
+| Database and object storage      | Public screenshots, orphaned objects, backup disclosure, inconsistent deletion          | Private bucket; short-lived signed URLs; workspace-prefixed keys; transactional metadata writes; object deletion after guide deletion; encrypted provider backups                   | Provider/operator access is privileged and must be audited outside the app                                                                                                          |
+| Revocable sharing                | Token guessing/leakage, stale access after revoke, object-key substitution              | 256-bit random tokens stored only as hashes; revalidation on every guide/image request; immediate revoke; guide-scoped object checks; sensitive action audit                        | Anyone holding an active link can view it; owners must revoke leaked links                                                                                                          |
+| Export pipeline                  | HTML injection, private asset leakage, incomplete redaction, job denial of service      | Escaped text; normalized export document; irreversible rasterized redactions; private expiring artifacts; bounded retries and leases; cancellation                                  | Large authorized guides consume worker resources; monitor queue age and failure rate                                                                                                |
+| Optional AI provider             | Prompt injection, secret leakage, provider outage, untrusted output, runaway cost       | Server-only credentials; explicit opt-in; bounded minimized/redacted text; fixed no-tools prompt; strict output schema; timeout and deterministic fallback; usage accounting        | Opted-in step text leaves Capchur for the configured provider; disclosed in privacy policy                                                                                          |
+| Web UI and shared pages          | XSS, CSRF, clickjacking, unsafe redirects                                               | React escaping; no application `dangerouslySetInnerHTML`, `eval`, or dynamic code; same-site authenticated boundary; callback restricted to local paths; strict token-scoped routes | Deployment must add platform security headers and TLS at the edge                                                                                                                   |
+| Dependencies and build           | Vulnerable transitive code, package tampering, generated dynamic execution              | Frozen pnpm lockfile; high-severity audit gate; package overrides; production build and browser E2E; manifest/bundle verifier                                                       | Zod performs one generated `Function("")` capability probe and React contains dormant unsafe-HTML handling; reviewed, application source does not invoke either; accepted for 0.1.0 |
+
+## Release Findings
+
+- No unresolved critical or high dependency advisory is accepted for release.
+- The low-severity local Vite/esbuild advisory is restricted to localhost development and does not enter the production runtime. Reassess when supported parent ranges include the patch.
+- Extension bundles are rejected if they contain unreviewed `eval`/`Function` execution, exceed 5 MiB unpacked, or request an unexpected required permission or host.
+- Security changes require focused authorization/privacy tests and a new review of this document.
+
+## Reporting
+
+Report suspected vulnerabilities privately to `security@bizleader.ai`. Do not include captured page content, credentials, tokens, or screenshots in the initial report.

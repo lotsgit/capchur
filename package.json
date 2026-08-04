@@ -12,6 +12,7 @@
         "build:extension:browsers": "corepack pnpm --filter @capchur/extension build:browsers",
         "install:extension-browsers": "corepack pnpm --filter @capchur/extension browsers:install",
         "zip:extension:browsers": "corepack pnpm --filter @capchur/extension zip:browsers",
+        "verify:release": "node scripts/verify-release.mjs",
         "install:pdf-browser": "corepack pnpm --filter @capchur/web browsers:install",
         "build": "corepack pnpm --recursive build",
         "typecheck": "corepack pnpm --filter @capchur/contracts build && corepack pnpm --filter @capchur/capture-core build && corepack pnpm --filter @capchur/export-core build && corepack pnpm --filter @capchur/extension compile && corepack pnpm --filter @capchur/web exec tsc --noEmit",
@@ -20,6 +21,7 @@
         "test:contracts": "corepack pnpm --filter @capchur/contracts test",
         "test:capture-core": "corepack pnpm --filter @capchur/capture-core test",
         "test:export-core": "corepack pnpm --filter @capchur/export-core test",
-        "test:extension": "corepack pnpm --filter @capchur/extension test"
+        "test:extension": "corepack pnpm --filter @capchur/extension test",
+        "test:release:web": "corepack pnpm --filter @capchur/web test:release-browser"
     }
 }
