@@ -225,6 +225,28 @@ export const GuideUpdateRequestSchema = z.strictObject({
     guide: GuideWriteSchema,
 });
 
+export const AiDescriptionEnhancementRequestSchema = z.strictObject({
+    consent: z.literal(true),
+    deterministicDescription: z.string().trim().max(5_000),
+    stepTitle: z.string().trim().max(2_000),
+    section: z.string().trim().max(200).nullable(),
+});
+
+export const AiDescriptionProviderOutputSchema = z.strictObject({
+    description: z.string().trim().min(1).max(500),
+});
+
+export const AiDescriptionEnhancementResponseSchema = z.strictObject({
+    description: z.string().trim().max(5_000),
+    source: z.enum(["ai", "deterministic"]),
+    fallbackReason: z.enum([
+        "not-configured",
+        "rate-limited",
+        "provider-failure",
+        "invalid-output",
+    ]).nullable(),
+});
+
 export const RecordingSessionWriteSchema = z.strictObject({
     session: RecordingSessionSchema,
 });
@@ -493,6 +515,9 @@ export type GuideStep = z.infer<typeof GuideStepSchema>;
 export type Guide = z.infer<typeof GuideSchema>;
 export type GuideWrite = z.infer<typeof GuideWriteSchema>;
 export type GuideUpdateRequest = z.infer<typeof GuideUpdateRequestSchema>;
+export type AiDescriptionEnhancementRequest = z.infer<typeof AiDescriptionEnhancementRequestSchema>;
+export type AiDescriptionProviderOutput = z.infer<typeof AiDescriptionProviderOutputSchema>;
+export type AiDescriptionEnhancementResponse = z.infer<typeof AiDescriptionEnhancementResponseSchema>;
 export type RecordingSessionWrite = z.infer<typeof RecordingSessionWriteSchema>;
 export type ImageUploadIntent = z.infer<typeof ImageUploadIntentSchema>;
 export type SignedImageUpload = z.infer<typeof SignedImageUploadSchema>;

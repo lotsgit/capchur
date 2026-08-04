@@ -231,3 +231,20 @@ export const exportJobs = pgTable(
     index("export_jobs_status_run_after_idx").on(table.status, table.runAfter),
   ],
 );
+
+export const aiDescriptionUsage = pgTable(
+  "ai_description_usage",
+  {
+    id: uuid("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    userId: text("user_id").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    estimatedCostMicros: integer("estimated_cost_micros").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("ai_description_usage_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);

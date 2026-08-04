@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    AiDescriptionEnhancementRequestSchema,
+    AiDescriptionEnhancementResponseSchema,
+    AiDescriptionProviderOutputSchema,
     CONTRACT_VERSION,
     CapturedStepSchema,
     ClickCaptureSchema,
@@ -16,6 +19,35 @@ import {
     RecordingResponseMessageSchema,
     RecordingSessionSchema,
 } from "./index";
+
+describe("AI description contracts", () => {
+    it("accepts only explicit consent and privacy-minimized context", () => {
+        const request = {
+            consent: true,
+            deterministicDescription: "Click the button",
+            stepTitle: "Continue",
+            section: null,
+        } as const;
+
+        expect(AiDescriptionEnhancementRequestSchema.parse(request)).toEqual(request);
+        expect(AiDescriptionEnhancementRequestSchema.safeParse({ ...request, consent: false }).success)
+            .toBe(false);
+        expect(AiDescriptionEnhancementRequestSchema.safeParse({ ...request, pageHtml: "<form>" }).success)
+            .toBe(false);
+    });
+
+    it("requires structured provider output and explicit fallback metadata", () => {
+        expect(AiDescriptionProviderOutputSchema.safeParse({ description: "Select Continue." }).success)
+            .toBe(true);
+        expect(AiDescriptionProviderOutputSchema.safeParse({ description: "", toolCall: "read-page" }).success)
+            .toBe(false);
+        expect(AiDescriptionEnhancementResponseSchema.safeParse({
+            description: "Click the button",
+            source: "deterministic",
+            fallbackReason: "provider-failure",
+        }).success).toBe(true);
+    });
+});
 
 const requestId = "0198f1d0-c184-7000-8000-000000000001";
 const sessionId = "0198f1d0-c184-7000-8000-000000000002";

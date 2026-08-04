@@ -123,6 +123,11 @@ textarea { resize: vertical; }
 .step-editor input, .step-editor textarea { width: 100%; border: 1px solid #cfd2cb; border-radius: 5px; background: #fbfcfa; padding: 11px 12px; color: var(--ink); }
 .step-editor input { font-weight: 750; }
 .step-editor textarea { line-height: 1.55; }
+.ai-description-controls { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 5px; }
+.step-editor .ai-opt-in { display: inline-flex; align-items: center; gap: 7px; margin-right: auto; color: var(--ink); text-transform: none; }
+.step-editor .ai-opt-in input { width: 16px; height: 16px; padding: 0; accent-color: var(--forest); }
+.ai-description-controls button { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; border: 1px solid var(--forest); border-radius: 5px; background: var(--forest-soft); padding: 0 11px; color: var(--forest); font-size: 10px; font-weight: 800; }
+.ai-description-controls > span { flex-basis: 100%; color: var(--muted); font-size: 10px; text-align: right; }
 
 .state-page { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 12px; padding: 28px; background: var(--paper); text-align: center; }
 .state-page h1 { font-size: 32px; }

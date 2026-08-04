@@ -10,6 +10,7 @@ import {
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  AiDescriptionEnhancementResponseSchema,
   ExportJobSchema,
   GuideSchema,
   type ExportFormat,
@@ -55,6 +56,9 @@ export function GuideEditor({
   const [savedRevision, setSavedRevision] = useState<number | null>(null);
   const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiState, setAiState] = useState<"idle" | "loading">("idle");
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const guideRef = useRef<Guide | null>(null);
 
   useEffect(() => {
@@ -247,6 +251,38 @@ export function GuideEditor({
     }
   }
 
+  async function enhanceDescription() {
+    if (!guideId || !selectedStep || !aiEnabled || aiState === "loading") return;
+    setAiState("loading");
+    setAiMessage(null);
+    try {
+      const response = await fetch("/api/ai/descriptions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          consent: true,
+          deterministicDescription: selectedStep.description,
+          stepTitle: selectedStep.title,
+          section: selectedStep.section,
+        }),
+      });
+      if (!response.ok) throw new Error("AI enhancement failed");
+      const result = AiDescriptionEnhancementResponseSchema.parse(await response.json());
+      if (result.source === "ai") {
+        editSelectedStep({ description: result.description });
+        setAiMessage("AI suggestion applied");
+      } else {
+        setAiMessage(result.fallbackReason === "rate-limited"
+          ? "Original kept - try again later"
+          : "Original kept - AI unavailable");
+      }
+    } catch {
+      setAiMessage("Original kept - AI unavailable");
+    } finally {
+      setAiState("idle");
+    }
+  }
+
   const selectedStep = guide?.steps.find((step) => step.id === selectedStepId) ?? null;
 
   if (loadState === "loading") {
@@ -366,6 +402,26 @@ export function GuideEditor({
               <input id="step-section" value={selectedStep.section ?? ""} placeholder="Optional section heading" onChange={(event) => editSelectedStep({ section: event.target.value || null })} />
               <label htmlFor="step-description">Supporting detail</label>
               <textarea id="step-description" rows={4} value={selectedStep.description} onChange={(event) => editStep({ title: selectedStep.title, description: event.target.value })} />
+              <div className="ai-description-controls">
+                <label className="ai-opt-in">
+                  <input
+                    type="checkbox"
+                    checked={aiEnabled}
+                    disabled={!guideId || identity?.role !== "owner"}
+                    onChange={(event) => { setAiEnabled(event.target.checked); setAiMessage(null); }}
+                  />
+                  Enable AI for this editing session
+                </label>
+                <button
+                  type="button"
+                  disabled={!aiEnabled || !guideId || identity?.role !== "owner" || aiState === "loading"}
+                  onClick={() => { void enhanceDescription(); }}
+                >
+                  {aiState === "loading" ? <LoaderCircle className="state-spinner" size={15} /> : <Sparkles size={15} />}
+                  Improve description
+                </button>
+                {aiMessage && <span role="status">{aiMessage}</span>}
+              </div>
             </section>
           </div>
         ) : (

@@ -1,4 +1,5 @@
 export {
+    AiDescriptionEnhancementResponseSchema,
     CapturedStepSchema,
     ExportJobSchema,
     GuideSchema,

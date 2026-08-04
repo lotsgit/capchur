@@ -176,4 +176,40 @@ describe("GuideEditor", () => {
     expect(fetchMock).toHaveBeenCalledWith(`/api/guides/${guide.id}/exports`, expect.objectContaining({ method: "POST" }));
     expect(fetchMock).toHaveBeenCalledWith(`/api/exports/${job.id}`);
   });
+
+  it("requires opt-in and keeps the deterministic description when AI falls back", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json(guide))
+      .mockResolvedValueOnce(Response.json({
+        description: guide.steps[0].description,
+        source: "deterministic",
+        fallbackReason: "provider-failure",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<GuideEditor
+      guideId={guide.id}
+      fixtureLoader={() => Promise.resolve(guide)}
+      identity={{ name: "Owner", role: "owner" }}
+    />);
+
+    const description = await screen.findByLabelText("Supporting detail") as HTMLTextAreaElement;
+    const improve = screen.getByRole("button", { name: "Improve description" });
+    expect(improve.hasAttribute("disabled")).toBe(true);
+
+    await user.click(screen.getByRole("checkbox", { name: "Enable AI for this editing session" }));
+    await user.click(improve);
+
+    expect(await screen.findByText("Original kept - AI unavailable")).toBeTruthy();
+    expect(description.value).toBe(guide.steps[0].description);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/ai/descriptions", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        consent: true,
+        deterministicDescription: guide.steps[0].description,
+        stepTitle: guide.steps[0].title,
+        section: null,
+      }),
+    }));
+  });
 });

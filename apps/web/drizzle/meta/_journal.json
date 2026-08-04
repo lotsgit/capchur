@@ -36,6 +36,13 @@
       "when": 1785819730410,
       "tag": "0004_known_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785825037982,
+      "tag": "0005_common_deadpool",
+      "breakpoints": true
     }
   ]
 }

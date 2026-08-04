@@ -1,4 +1,9 @@
 import { createAuth, WorkspaceAuthenticator } from "./auth";
+import {
+  AiDescriptionApi,
+  createEnvironmentAiDescriptionService,
+} from "./ai-description";
+import { createAiUsageRecorder } from "./ai-usage-repository";
 import { ExtensionApi, PersistenceApi } from "./api";
 import { getDatabase } from "./db";
 import { ExtensionAuthorizationService } from "./extension-auth";
@@ -9,12 +14,26 @@ import { createEnvironmentObjectStorage } from "./object-storage";
 import { createPersistenceRepository } from "./persistence-repository";
 
 const globalRuntime = globalThis as typeof globalThis & {
+  capchurAiDescriptionApi?: Promise<AiDescriptionApi>;
   capchurAuth?: Promise<ReturnType<typeof createAuth>>;
   capchurExtensionApi?: Promise<ExtensionApi>;
   capchurExportApi?: Promise<ExportApi>;
   capchurExportService?: Promise<ExportService>;
   capchurPersistenceApi?: Promise<PersistenceApi>;
 };
+
+async function createAiDescriptionApi(): Promise<AiDescriptionApi> {
+  const database = await getDatabase();
+  return new AiDescriptionApi(
+    await getWorkspaceAuthenticator(),
+    createEnvironmentAiDescriptionService(createAiUsageRecorder(database)),
+  );
+}
+
+export function getAiDescriptionApi(): Promise<AiDescriptionApi> {
+  globalRuntime.capchurAiDescriptionApi ??= createAiDescriptionApi();
+  return globalRuntime.capchurAiDescriptionApi;
+}
 
 export function getAuth(): Promise<ReturnType<typeof createAuth>> {
   globalRuntime.capchurAuth ??= getDatabase().then(createAuth);
