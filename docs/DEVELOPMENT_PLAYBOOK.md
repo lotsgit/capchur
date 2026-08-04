@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S13 - HTML and Markdown export`
+**Current milestone:** `S14 - PDF and DOCX export`
 
 **Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, and resilient extension-to-cloud session sync are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private image objects locally; production adapters target PostgreSQL and S3-compatible storage.
 
-**Last completed session:** `S12 - Complete editing and privacy tools`
+**Last completed session:** `S13 - HTML and Markdown export`
 
-**Next action:** Complete S13 only. Establish the framework-independent HTML and Markdown export model.
+**Next action:** Complete S14 only. Generate PDF and DOCX from the shared export model through durable background jobs.
 
 ## Product Goal
 
@@ -74,7 +74,7 @@ flowchart LR
 | `apps/web`                     | Guide editor, trusted API boundaries, authentication, server workflows                   | Browser extension APIs or content-script implementation        |
 | `packages/contracts`           | Versioned messages and data exchanged between processes/apps                             | Browser, React, database, or framework implementation          |
 | Future `packages/capture-core` | Pure element analysis and description rules                                              | DOM event registration or extension APIs                       |
-| Future `packages/export-core`  | Pure guide-to-document transformations                                                   | UI, authentication, or storage clients                         |
+| `packages/export-core`         | Pure guide-to-document transformations and portable HTML/Markdown bundles                | UI, authentication, or storage clients                         |
 
 Dependencies flow from applications toward shared packages. An application must never import code from another application.
 
@@ -442,22 +442,24 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S13 - HTML And Markdown Export
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Establish a tested, framework-independent export model.
 
 **Tasks:**
 
-- [ ] Add `packages/export-core`.
-- [ ] Map guide contracts into an export document model.
-- [ ] Generate accessible HTML and portable Markdown bundles.
-- [ ] Test escaping, image references, ordering, and redactions.
+- [x] Add `packages/export-core`.
+- [x] Map guide contracts into an export document model.
+- [x] Generate accessible HTML and portable Markdown bundles.
+- [x] Test escaping, image references, ordering, and redactions.
 
 **Acceptance:** Exported documents preserve order, descriptions, images, highlights, and redactions.
 
+**Validation evidence:** All 88 workspace tests passed, including three export-core tests for deterministic ordering, HTML/Markdown escaping, portable image references, crop translation, visible highlights, and irreversible rasterized redactions. Repository typecheck, lint, and production builds passed. The dependency audit findings are recorded under **Known Risks**.
+
 ### S14 - PDF And DOCX Export
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Generate professional PDF and Word documents through background jobs.
 
@@ -551,8 +553,8 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S10 Authentication     | DONE    | This commit       | Database sessions and workspace role isolation passed.            |
 | S11 Extension sync     | DONE    | This commit       | Resumable authenticated sync maps local sessions to guides.       |
 | S12 Complete editing   | DONE    | This commit       | Complete editing, privacy metadata, history, and autosave passed. |
-| S13 HTML/Markdown      | NEXT    | -                 | Establishes export model.                                         |
-| S14 PDF/DOCX           | PLANNED | -                 | Depends on S13.                                                   |
+| S13 HTML/Markdown      | DONE    | This commit       | Portable bundles and irreversible redactions passed.              |
+| S14 PDF/DOCX           | NEXT    | -                 | Depends on S13.                                                   |
 | S15 AI descriptions    | PLANNED | -                 | Deterministic fallback required.                                  |
 | S16 Collaboration      | PLANNED | -                 | Depends on authorization.                                         |
 | S17 Hardening          | PLANNED | -                 | Cross-browser evidence.                                           |
@@ -581,12 +583,14 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-03 | Use Better Auth with its Drizzle adapter for web sessions while keeping workspace membership and authorization in Capchur-owned tables.                 | The web app needs maintained credential hashing, signed expiring cookies, and session revocation, while workspace data ownership remains a core domain rule. | New users receive an owner workspace; members may read workspace resources, only owners mutate them, every API and object lookup scopes by workspace, and S11 must use an extension-safe Better Auth flow without exposing long-lived secrets to page context. |
 | 2026-08-03 | Authorize the extension through browser identity using one-time codes and hashed one-hour bearer tokens, and sync through a durable worker-owned queue. | Page context must never receive extension credentials, while MV3 suspension, offline recording, and partial image uploads require persisted resumable state. | The extension requires `identity`, `alarms`, and access to the configured web origin; stable idempotency keys map each local session to one guide, screenshot checkpoints resume partial uploads, and stale cloud revisions require explicit local changes.    |
 | 2026-08-04 | Keep crop, highlight, and redaction edits as image-pixel metadata and use optimistic guide revisions for autosave.                                      | Original private screenshots must remain unchanged and concurrent editors must not silently overwrite newer work.                                            | S13/S14 exporters must flatten redactions irreversibly into output pixels; guide `PUT` requests carry the loaded revision and receive `409 EDIT_CONFLICT` when stale.                                                                                          |
+| 2026-08-04 | Use a framework-independent export document with injected image resolution and Sharp-rendered portable assets.                                           | HTML, Markdown, PDF, and DOCX must share ordering and presentation semantics while export output irreversibly applies crop, highlight, and redaction metadata. | `@capchur/export-core` depends only on shared contracts and image processing; callers supply private image bytes, HTML and Markdown reference local PNG assets, and S14 can consume the same normalized document and rendered media.                            |
 
 ## Known Risks
 
 | Risk                                                                                                                            | Status                   | Planned treatment                                                                                                                                           |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The 2026-08-03 audit reports one low-severity esbuild advisory affecting local Windows development servers through Vite/Vitest. | Open                     | Keep development servers bound to localhost and adopt esbuild 0.28.1 or later when parent tool ranges support it; do not force an unsupported 0.x override. |
+| The 2026-08-04 audit reports high-severity `fast-uri` and `brace-expansion` advisories in extension and web development tooling. | Open                     | Track patched WXT, ESLint, and TypeScript ESLint dependency ranges; assess targeted overrides separately and do not run a forceful audit fix.                |
 | Browser extensions cannot inspect native desktop applications or protected browser pages.                                       | Accepted for browser MVP | Explain unsupported pages in S03/S17; evaluate a separate desktop recorder only after browser release.                                                      |
 | Canvas/WebGL applications provide weak semantic element data.                                                                   | Open                     | Define fallback behavior and possible OCR investigation in S17.                                                                                             |
 | Cross-origin frames and closed shadow roots limit DOM access.                                                                   | Open                     | Test and document explicit behavior in S17 without broadening permissions unnecessarily.                                                                    |
@@ -610,6 +614,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-08-03 | S10     | Replaced transitional bearer identities with Better Auth users and sessions, protected editor and auth flows, owner/member workspaces, and workspace-scoped persistence authorization. | 73 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser flows passed; expiry, revocation, role enforcement, and cross-workspace isolation covered. | This commit |
 | 2026-08-03 | S11     | Added extension-safe browser authorization, a persistent resumable upload queue, idempotent session-to-guide mapping, partial screenshot sync, and mapped-guide handoff.               | 79 tests, typecheck, lint, production builds, manifest inspection, and desktop/mobile browser checks passed; retry, conflict, expiry, and one-time grant behavior covered.            | This commit |
 | 2026-08-04 | S12     | Added complete guide presentation, manual step, crop, zoom, highlight, redaction, history, and conflict-aware autosave tools without mutating source images.                           | 85 tests, typecheck, lint, migration generation, and production builds passed; stale writes, immutable metadata, privacy controls, and responsive editing covered.                    | This commit |
+| 2026-08-04 | S13     | Added a framework-independent export document plus accessible HTML and portable Markdown bundles with locally referenced, annotation-rendered PNG assets.                            | 88 tests, typecheck, lint, and production builds passed; escaping, ordering, image references, highlights, crop translation, and irreversible redactions covered.                     | This commit |
 
 ## Scope Changes
 
