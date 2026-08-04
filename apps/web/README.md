@@ -1,33 +1,12 @@
 # Capchur Web
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-corepack pnpm run dev:web
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-````powershell
-
-## Development
-
-From the workspace root:
+Run commands from the workspace root.
 
 ```powershell
+corepack pnpm install
+corepack pnpm run install:pdf-browser
+$env:CAPCHUR_SIGNING_SECRET = node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 corepack pnpm run dev:web
-````
-
-node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
-
 ```
 
-```
+Open http://localhost:3000. PDF export requires the installed Playwright Chromium runtime. Local development uses PGlite and filesystem object storage; production requires `DATABASE_URL`, `S3_BUCKET`, and standard AWS credentials.

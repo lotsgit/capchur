@@ -5,6 +5,8 @@ import {
     CapturedStepSchema,
     ClickCaptureSchema,
     ExtensionMessageSchema,
+    ExportJobRequestSchema,
+    ExportJobSchema,
     GuideUpdateRequestSchema,
     GuideWriteSchema,
     GuideSchema,
@@ -271,6 +273,23 @@ describe("local session review contracts", () => {
 });
 
 describe("guide domain contracts", () => {
+    it("validates export requests and durable job states", () => {
+        expect(ExportJobRequestSchema.parse({ format: "pdf" })).toEqual({ format: "pdf" });
+        expect(ExportJobRequestSchema.safeParse({ format: "html" }).success).toBe(false);
+        expect(ExportJobSchema.safeParse({
+            id: requestId,
+            guideId: validGuide.id,
+            format: "docx",
+            status: "completed",
+            attempts: 1,
+            createdAt: 100,
+            updatedAt: 200,
+            expiresAt: 300,
+            error: null,
+            downloadUrl: "/api/exports/download?token=signed",
+        }).success).toBe(true);
+    });
+
     it("parses an editable guide without capture transport fields", () => {
         expect(GuideSchema.parse(validGuide)).toEqual(validGuide);
         expect("sessionId" in validGuide.steps[0]).toBe(false);

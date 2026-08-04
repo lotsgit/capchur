@@ -1,4 +1,7 @@
 import type {
+  ExportFormat,
+  ExportJobStatus,
+  Guide,
   GuideAnnotation,
   GuideBranding,
   GuideMedia,
@@ -200,3 +203,31 @@ export const storedObjects = pgTable("stored_objects", {
   sha256: text("sha256").notNull(),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
+
+export const exportJobs = pgTable(
+  "export_jobs",
+  {
+    id: uuid("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    guideId: uuid("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    guideSnapshot: jsonb("guide_snapshot").$type<Guide>().notNull(),
+    format: text("format").$type<ExportFormat>().notNull(),
+    status: text("status").$type<ExportJobStatus>().notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    runAfter: bigint("run_after", { mode: "number" }).notNull(),
+    artifactObjectKey: text("artifact_object_key"),
+    artifactMimeType: text("artifact_mime_type"),
+    artifactByteLength: integer("artifact_byte_length"),
+    artifactSha256: text("artifact_sha256"),
+    error: text("error"),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("export_jobs_workspace_id_idx").on(table.workspaceId),
+    index("export_jobs_status_run_after_idx").on(table.status, table.runAfter),
+  ],
+);

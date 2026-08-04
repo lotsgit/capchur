@@ -52,6 +52,7 @@ describe("persistence repository", () => {
       "0001_pale_machine_man.sql",
       "0002_fair_puff_adder.sql",
       "0003_misty_umar.sql",
+      "0004_known_bishop.sql",
     ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));
@@ -81,8 +82,28 @@ describe("persistence repository", () => {
     const restartedRepository = createPersistenceRepository(handle);
     expect((await restartedRepository.getGuide(workspaceId, guideId))?.title).toBe("Published");
 
+    await handle.database.insert(schema.exportJobs).values({
+      id: "0198f1d0-c184-7000-8000-000000000299",
+      workspaceId,
+      guideId,
+      guideSnapshot: (await restartedRepository.getGuide(workspaceId, guideId))!,
+      format: "pdf",
+      status: "completed",
+      attempts: 1,
+      runAfter: 200,
+      artifactObjectKey: `${guideId}/exports/guide.pdf`,
+      artifactMimeType: "application/pdf",
+      artifactByteLength: 100,
+      artifactSha256: "a".repeat(64),
+      createdAt: 100,
+      updatedAt: 200,
+      expiresAt: 10_000,
+    });
+
     expect(await restartedRepository.deleteGuide(otherWorkspaceId, guideId)).toEqual([]);
-    await restartedRepository.deleteGuide(workspaceId, guideId);
+    expect(await restartedRepository.deleteGuide(workspaceId, guideId)).toEqual([
+      `${guideId}/exports/guide.pdf`,
+    ]);
     expect(await restartedRepository.getGuide(workspaceId, guideId)).toBeNull();
   }, 60_000);
 

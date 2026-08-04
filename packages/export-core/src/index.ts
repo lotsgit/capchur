@@ -1,4 +1,14 @@
 import { GuideSchema, type Guide } from "@capchur/contracts";
+import {
+    AlignmentType,
+    Document,
+    ExternalHyperlink,
+    HeadingLevel,
+    ImageRun,
+    Packer,
+    Paragraph,
+    TextRun,
+} from "docx";
 import sharp, { type OverlayOptions } from "sharp";
 
 type ImageRect = { x: number; y: number; width: number; height: number };
@@ -40,6 +50,9 @@ export interface ExportBundle {
 }
 
 export type ExportImageResolver = (source: string) => Promise<Uint8Array>;
+
+const DOCX_IMAGE_MAX_WIDTH = 624;
+const DOCX_IMAGE_MAX_HEIGHT = 700;
 
 function intersect(rect: ImageRect, bounds: ImageRect): ImageRect | null {
     const x = Math.max(rect.x, bounds.x);
@@ -144,6 +157,19 @@ function escapeMarkdown(value: string): string {
     return value.replace(/([\\`*_[\]<>#])/g, "\\$1");
 }
 
+function htmlTextWithLinks(value: string): string {
+    const pattern = /https?:\/\/[^\s]+/g;
+    let output = "";
+    let offset = 0;
+    for (const match of value.matchAll(pattern)) {
+        output += escapeHtml(value.slice(offset, match.index));
+        const url = escapeHtml(match[0]);
+        output += `<a href="${url}">${url}</a>`;
+        offset = match.index + match[0].length;
+    }
+    return output + escapeHtml(value.slice(offset));
+}
+
 function imagePath(step: ExportDocumentStep): string {
     return `assets/step-${step.number}.png`;
 }
@@ -157,6 +183,92 @@ async function imageFiles(document: ExportDocument, resolveImage: ExportImageRes
     return files;
 }
 
+function fitImage(width: number, height: number): { width: number; height: number } {
+    const scale = Math.min(1, DOCX_IMAGE_MAX_WIDTH / width, DOCX_IMAGE_MAX_HEIGHT / height);
+    return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+function linkedText(value: string): Array<TextRun | ExternalHyperlink> {
+    const parts: Array<TextRun | ExternalHyperlink> = [];
+    const pattern = /https?:\/\/[^\s]+/g;
+    let offset = 0;
+    for (const match of value.matchAll(pattern)) {
+        if (match.index > offset) parts.push(new TextRun(value.slice(offset, match.index)));
+        parts.push(new ExternalHyperlink({
+            link: match[0],
+            children: [new TextRun({ text: match[0], style: "Hyperlink" })],
+        }));
+        offset = match.index + match[0].length;
+    }
+    if (offset < value.length) parts.push(new TextRun(value.slice(offset)));
+    return parts;
+}
+
+export async function createDocxFile(input: Guide, resolveImage: ExportImageResolver): Promise<ExportFile> {
+    const document = mapGuideToExportDocument(input);
+    const children: Paragraph[] = [
+        new Paragraph({ text: document.title, heading: HeadingLevel.TITLE }),
+    ];
+    if (document.branding.name) {
+        children.push(new Paragraph({
+            children: [new TextRun({ text: document.branding.name, bold: true, color: document.branding.accentColor.slice(1) })],
+        }));
+    }
+    if (document.description) children.push(new Paragraph({ children: linkedText(document.description) }));
+    if (document.introduction) children.push(new Paragraph({ children: linkedText(document.introduction) }));
+
+    let activeSection: string | null = null;
+    for (const step of document.steps) {
+        if (step.section && step.section !== activeSection) {
+            children.push(new Paragraph({
+                text: step.section,
+                heading: HeadingLevel.HEADING_1,
+                keepNext: true,
+            }));
+        }
+        activeSection = step.section;
+        children.push(new Paragraph({
+            text: `${step.number}. ${step.title}`,
+            heading: HeadingLevel.HEADING_2,
+            keepNext: true,
+        }));
+        if (step.description) children.push(new Paragraph({ children: linkedText(step.description) }));
+        if (step.image) {
+            const image = await renderImage(step, resolveImage);
+            if (image) {
+                children.push(new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new ImageRun({
+                        data: image,
+                        type: "png",
+                        transformation: fitImage(step.image.width, step.image.height),
+                        altText: { title: step.title, description: step.image.alt, name: `Step ${step.number}` },
+                    })],
+                }));
+            }
+        }
+    }
+
+    const content = await Packer.toBuffer(new Document({
+        creator: "Capchur",
+        title: document.title,
+        description: document.description,
+        sections: [{
+            properties: {
+                page: {
+                    margin: { top: 720, right: 720, bottom: 720, left: 720 },
+                },
+            },
+            children,
+        }],
+    }));
+    return {
+        path: "guide.docx",
+        content,
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+}
+
 export async function createHtmlBundle(input: Guide, resolveImage: ExportImageResolver): Promise<ExportBundle> {
     const document = mapGuideToExportDocument(input);
     let activeSection: string | null = null;
@@ -166,12 +278,12 @@ export async function createHtmlBundle(input: Guide, resolveImage: ExportImageRe
             : "";
         activeSection = step.section;
         const image = step.image
-            ? `<figure><img src="${imagePath(step)}" alt="${escapeHtml(step.image.alt)}" width="${step.image.width}" height="${step.image.height}"><figcaption>${escapeHtml(step.description)}</figcaption></figure>`
-            : step.description ? `<p>${escapeHtml(step.description)}</p>` : "";
+            ? `<figure><img src="${imagePath(step)}" alt="${escapeHtml(step.image.alt)}" width="${step.image.width}" height="${step.image.height}"><figcaption>${htmlTextWithLinks(step.description)}</figcaption></figure>`
+            : step.description ? `<p>${htmlTextWithLinks(step.description)}</p>` : "";
         return `${section}<section aria-labelledby="step-${step.number}"><h3 id="step-${step.number}">${step.number}. ${escapeHtml(step.title)}</h3>${image}</section>`;
     }).join("");
     const brand = document.branding.name ? `<p class="brand">${escapeHtml(document.branding.name)}</p>` : "";
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(document.title)}</title><style>:root{--accent:${document.branding.accentColor}}body{font:16px/1.6 sans-serif;max-width:960px;margin:auto;padding:2rem;color:#202421}h1,h2,h3{line-height:1.2}h2{border-bottom:2px solid var(--accent);padding-bottom:.3rem}img{max-width:100%;height:auto}figure{margin:1rem 0 2.5rem}figcaption{margin-top:.5rem}.brand{color:var(--accent);font-weight:700}</style></head><body><header>${brand}<h1>${escapeHtml(document.title)}</h1><p>${escapeHtml(document.description)}</p></header><main>${document.introduction ? `<p>${escapeHtml(document.introduction)}</p>` : ""}${steps}</main></body></html>`;
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(document.title)}</title><style>:root{--accent:${document.branding.accentColor}}@page{size:Letter;margin:.6in}*{box-sizing:border-box}body{font:11pt/1.55 "Aptos","Segoe UI",sans-serif;max-width:960px;margin:auto;padding:2rem;color:#202421;overflow-wrap:anywhere}header{margin-bottom:2rem}h1,h2,h3{line-height:1.2;break-after:avoid}h1{font-size:25pt}h2{font-size:17pt;border-bottom:2px solid var(--accent);padding-bottom:.3rem}h3{font-size:13pt}section,figure{break-inside:avoid}img{display:block;max-width:100%;max-height:7.2in;width:auto;height:auto;object-fit:contain}figure{margin:1rem 0 2rem}figcaption{margin-top:.5rem}a{color:var(--accent);text-decoration:underline}.brand{color:var(--accent);font-weight:700}@media print{body{max-width:none;margin:0;padding:0}}</style></head><body><header>${brand}<h1>${escapeHtml(document.title)}</h1><p>${htmlTextWithLinks(document.description)}</p></header><main>${document.introduction ? `<p>${htmlTextWithLinks(document.introduction)}</p>` : ""}${steps}</main></body></html>`;
 
     return { entrypoint: "index.html", files: [{ path: "index.html", content: html, mediaType: "text/html" }, ...await imageFiles(document, resolveImage)] };
 }

@@ -84,6 +84,13 @@ textarea { resize: vertical; }
 .account-control button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); }
 .saved-message { display: inline-flex; align-items: center; gap: 5px; color: var(--forest); font-size: 11px; font-weight: 750; }
 .primary-button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 0 15px; border: 1px solid var(--forest); border-radius: 5px; background: var(--forest); color: #fff; font-size: 12px; font-weight: 800; }
+.export-controls { display: flex; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+.export-controls button { display: inline-flex; min-height: 36px; align-items: center; gap: 6px; padding: 0 10px; border: 0; background: transparent; color: var(--ink); font-size: 10px; font-weight: 800; }
+.export-controls button + button { border-left: 1px solid var(--line); }
+.export-status { display: flex; min-height: 42px; align-items: center; justify-content: flex-end; gap: 12px; padding: 7px clamp(20px, 3vw, 42px); border-bottom: 1px solid #b9cbbf; background: var(--forest-soft); color: var(--forest); font-size: 11px; font-weight: 750; }
+.export-status button, .export-status a { display: inline-flex; min-height: 28px; align-items: center; gap: 5px; border: 1px solid currentColor; border-radius: 4px; background: transparent; padding: 0 9px; color: inherit; font-size: 10px; font-weight: 800; text-decoration: none; }
+.export-status--failed, .export-status--error { border-color: #efb9b2; background: #fee9e6; color: #9c2e23; }
+.export-status--cancelled, .export-status--expired { border-color: var(--line); background: #eef0ec; color: var(--muted); }
 .editor-content { width: min(1080px, calc(100% - 48px)); margin: 0 auto; padding: clamp(24px, 4vw, 54px) 0 60px; }
 .media-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
 .media-tools label, .media-tools button, .annotation-actions button { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); padding: 0 10px; color: var(--ink); font-size: 10px; font-weight: 750; }
@@ -165,6 +172,9 @@ textarea { resize: vertical; }
   .editor-toolbar { min-height: 70px; padding: 10px 16px; }
   .editor-toolbar h1 { font-size: 21px; }
   .saved-message { display: none; }
+  .toolbar-actions { gap: 7px; }
+  .export-controls button { width: 36px; justify-content: center; overflow: hidden; padding: 0; font-size: 0; }
+  .export-status { justify-content: space-between; padding: 7px 16px; }
   .account-control > span { display: none; }
   .account-control { gap: 0; padding-left: 8px; }
   .editor-content { width: calc(100% - 24px); padding: 20px 0 40px; }

@@ -20,10 +20,19 @@ const SIGNED_URL_LIFETIME_MS = 5 * 60 * 1_000;
 
 export interface ObjectStorage {
   issueUpload(record: StoredObjectRecord): Promise<SignedImageUpload>;
-  issueDownload(record: StoredObjectRecord): Promise<SignedImageDownload>;
+  issueDownload(record: StoredObject): Promise<SignedImageDownload>;
+  put(object: StoredObject, bytes: Uint8Array): Promise<void>;
+  read(objectKey: string): Promise<Uint8Array>;
   delete(objectKeys: string[]): Promise<void>;
   receiveUpload?(request: Request, token: string): Promise<Response>;
   serveDownload?(token: string): Promise<Response>;
+}
+
+export interface StoredObject {
+  objectKey: string;
+  mimeType: string;
+  byteLength: number;
+  sha256: string;
 }
 
 interface LocalTokenPayload {
@@ -108,7 +117,7 @@ export class LocalObjectStorage implements ObjectStorage {
     };
   }
 
-  async issueDownload(record: StoredObjectRecord): Promise<SignedImageDownload> {
+  async issueDownload(record: StoredObject): Promise<SignedImageDownload> {
     const expiresAt = Date.now() + SIGNED_URL_LIFETIME_MS;
     const token = encodeToken({
       action: "download",
@@ -146,6 +155,22 @@ export class LocalObjectStorage implements ObjectStorage {
     await writeFile(temporaryPath, bytes, { flag: "wx" });
     await rename(temporaryPath, path);
     return new Response(null, { status: 204 });
+  }
+
+  async put(object: StoredObject, bytes: Uint8Array): Promise<void> {
+    if (bytes.byteLength !== object.byteLength ||
+      createHash("sha256").update(bytes).digest("hex") !== object.sha256) {
+      throw new Error("Object metadata does not match content");
+    }
+    const path = this.pathFor(object.objectKey);
+    const temporaryPath = `${path}.${randomUUID()}.tmp`;
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(temporaryPath, bytes, { flag: "wx" });
+    await rename(temporaryPath, path);
+  }
+
+  async read(objectKey: string): Promise<Uint8Array> {
+    return readFile(this.pathFor(objectKey));
   }
 
   async serveDownload(token: string): Promise<Response> {
@@ -207,7 +232,7 @@ export class S3ObjectStorage implements ObjectStorage {
     };
   }
 
-  async issueDownload(record: StoredObjectRecord): Promise<SignedImageDownload> {
+  async issueDownload(record: StoredObject): Promise<SignedImageDownload> {
     return {
       downloadUrl: await getSignedUrl(
         this.client,
@@ -216,6 +241,30 @@ export class S3ObjectStorage implements ObjectStorage {
       ),
       expiresAt: Date.now() + SIGNED_URL_LIFETIME_MS,
     };
+  }
+
+  async put(object: StoredObject, bytes: Uint8Array): Promise<void> {
+    if (bytes.byteLength !== object.byteLength ||
+      createHash("sha256").update(bytes).digest("hex") !== object.sha256) {
+      throw new Error("Object metadata does not match content");
+    }
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: object.objectKey,
+      Body: bytes,
+      ContentType: object.mimeType,
+      ContentLength: object.byteLength,
+      ChecksumSHA256: Buffer.from(object.sha256, "hex").toString("base64"),
+    }));
+  }
+
+  async read(objectKey: string): Promise<Uint8Array> {
+    const response = await this.client.send(new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: objectKey,
+    }));
+    if (!response.Body) throw new Error("Object content is missing");
+    return response.Body.transformToByteArray();
   }
 
   async delete(objectKeys: string[]): Promise<void> {

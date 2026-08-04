@@ -29,6 +29,13 @@
       "when": 1785816769558,
       "tag": "0003_misty_umar",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785819730410,
+      "tag": "0004_known_bishop",
+      "breakpoints": true
     }
   ]
 }

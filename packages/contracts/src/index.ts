@@ -293,6 +293,34 @@ export const SignedImageDownloadSchema = z.strictObject({
     expiresAt: TimestampSchema,
 });
 
+export const ExportFormatSchema = z.enum(["pdf", "docx"]);
+
+export const ExportJobStatusSchema = z.enum([
+    "queued",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+    "expired",
+]);
+
+export const ExportJobRequestSchema = z.strictObject({
+    format: ExportFormatSchema,
+});
+
+export const ExportJobSchema = z.strictObject({
+    id: IdSchema,
+    guideId: IdSchema,
+    format: ExportFormatSchema,
+    status: ExportJobStatusSchema,
+    attempts: z.number().int().nonnegative(),
+    createdAt: TimestampSchema,
+    updatedAt: TimestampSchema,
+    expiresAt: TimestampSchema,
+    error: z.string().trim().max(2_000).nullable(),
+    downloadUrl: z.string().trim().min(1).max(4_000).nullable(),
+});
+
 const MessageBaseShape = {
     version: z.literal(CONTRACT_VERSION),
     requestId: IdSchema,
@@ -469,6 +497,10 @@ export type RecordingSessionWrite = z.infer<typeof RecordingSessionWriteSchema>;
 export type ImageUploadIntent = z.infer<typeof ImageUploadIntentSchema>;
 export type SignedImageUpload = z.infer<typeof SignedImageUploadSchema>;
 export type SignedImageDownload = z.infer<typeof SignedImageDownloadSchema>;
+export type ExportFormat = z.infer<typeof ExportFormatSchema>;
+export type ExportJobStatus = z.infer<typeof ExportJobStatusSchema>;
+export type ExportJobRequest = z.infer<typeof ExportJobRequestSchema>;
+export type ExportJob = z.infer<typeof ExportJobSchema>;
 export type RecordingRequestMessage = z.infer<
     typeof RecordingRequestMessageSchema
 >;

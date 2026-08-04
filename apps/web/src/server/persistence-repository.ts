@@ -17,6 +17,7 @@ import type {
   RemoteDatabase,
 } from "./db";
 import {
+  exportJobs,
   guideSteps,
   guides,
   recordingSessions,
@@ -217,12 +218,19 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
         .select({ objectKey: storedObjects.objectKey })
         .from(storedObjects)
         .where(and(eq(storedObjects.guideId, guideId), eq(storedObjects.workspaceId, workspaceId)));
+      const artifacts = await database
+        .select({ objectKey: exportJobs.artifactObjectKey })
+        .from(exportJobs)
+        .where(and(eq(exportJobs.guideId, guideId), eq(exportJobs.workspaceId, workspaceId)));
       const deleted = await database
         .delete(guides)
         .where(and(eq(guides.id, guideId), eq(guides.workspaceId, workspaceId)))
         .returning();
 
-      return deleted.length === 0 ? [] : objects.map((object) => object.objectKey);
+      return deleted.length === 0 ? [] : [
+        ...objects.map((object) => object.objectKey),
+        ...artifacts.flatMap(({ objectKey }) => objectKey ? [objectKey] : []),
+      ];
     },
 
     async putSession(workspaceId, session) {

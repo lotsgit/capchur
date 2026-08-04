@@ -12,6 +12,7 @@
     },
     "dependencies": {
         "@capchur/contracts": "workspace:*",
+        "docx": "^9.7.1",
         "sharp": "^0.35.3"
     },
     "devDependencies": {

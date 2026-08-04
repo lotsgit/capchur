@@ -1,5 +1,6 @@
 export {
     CapturedStepSchema,
+    ExportJobSchema,
     GuideSchema,
     GuideStepSchema,
     RecordingSessionSchema,
@@ -7,6 +8,8 @@ export {
 
 export type {
     CapturedStep,
+    ExportFormat,
+    ExportJob,
     Guide,
     GuideStep,
     RecordingSession,

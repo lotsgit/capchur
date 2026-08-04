@@ -3,13 +3,20 @@
 import Image from "next/image";
 import {
   ArrowDown, ArrowLeft, ArrowUp, Check, CircleHelp, Copy, Crop,
-  Eye, EyeOff, FileText, FolderOpen, LayoutTemplate, LoaderCircle,
+  Download, Eye, EyeOff, FileDown, FileText, FolderOpen, LayoutTemplate, LoaderCircle,
   Play, Plus, Redo2, RotateCcw, Settings, Shield, Sparkles, Trash2,
-  Undo2, ZoomIn,
+  Undo2, X, ZoomIn,
 } from "lucide-react";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
-import { GuideSchema, type Guide, type GuideStep } from "@/lib/contracts";
+import {
+  ExportJobSchema,
+  GuideSchema,
+  type ExportFormat,
+  type ExportJob,
+  type Guide,
+  type GuideStep,
+} from "@/lib/contracts";
 import {
   addGuideStep, deleteGuideStep, duplicateGuideStep, moveGuideStep,
   updateGuideDetails, updateGuideStep, type StepDirection,
@@ -46,6 +53,8 @@ export function GuideEditor({
   const [future, setFuture] = useState<Guide[]>([]);
   const [zoom, setZoom] = useState(100);
   const [savedRevision, setSavedRevision] = useState<number | null>(null);
+  const [exportJob, setExportJob] = useState<ExportJob | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const guideRef = useRef<Guide | null>(null);
 
   useEffect(() => {
@@ -195,6 +204,49 @@ export function GuideEditor({
     return () => window.clearTimeout(timer);
   }, [guide, guideId, persistGuide, unsaved]);
 
+  useEffect(() => {
+    if (!exportJob || !["queued", "running"].includes(exportJob.status)) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/exports/${encodeURIComponent(exportJob.id)}`);
+        if (!response.ok) throw new Error("Export status failed");
+        setExportJob(ExportJobSchema.parse(await response.json()));
+      } catch {
+        setExportMessage("Export status unavailable - retrying");
+      }
+    }, 1_000);
+    return () => window.clearTimeout(timer);
+  }, [exportJob]);
+
+  async function startExport(format: ExportFormat) {
+    if (!guideId || unsaved) return;
+    setExportMessage(`Preparing ${format.toUpperCase()}...`);
+    try {
+      const response = await fetch(`/api/guides/${encodeURIComponent(guideId)}/exports`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ format }),
+      });
+      if (!response.ok) throw new Error("Export creation failed");
+      setExportJob(ExportJobSchema.parse(await response.json()));
+      setExportMessage(null);
+    } catch {
+      setExportMessage("Export could not be started");
+    }
+  }
+
+  async function updateExport(method: "POST" | "DELETE") {
+    if (!exportJob) return;
+    try {
+      const response = await fetch(`/api/exports/${encodeURIComponent(exportJob.id)}`, { method });
+      if (!response.ok) throw new Error("Export update failed");
+      setExportJob(ExportJobSchema.parse(await response.json()));
+      setExportMessage(null);
+    } catch {
+      setExportMessage(method === "POST" ? "Retry could not be started" : "Export could not be cancelled");
+    }
+  }
+
   const selectedStep = guide?.steps.find((step) => step.id === selectedStepId) ?? null;
 
   if (loadState === "loading") {
@@ -282,9 +334,21 @@ export function GuideEditor({
             <button className="icon-button" type="button" title="Undo" aria-label="Undo" disabled={past.length === 0} onClick={undo}><Undo2 size={16} /></button>
             <button className="icon-button" type="button" title="Redo" aria-label="Redo" disabled={future.length === 0} onClick={redo}><Redo2 size={16} /></button>
             <button className="primary-button" type="button" disabled={!unsaved} onClick={() => { void persistGuide(guide); }}><Check size={16} /> Save draft</button>
+            <div className="export-controls" aria-label="Export guide">
+              <button type="button" disabled={!guideId || unsaved || identity?.role === "member" || exportJob?.status === "running"} onClick={() => { void startExport("pdf"); }}><FileDown size={15} /> PDF</button>
+              <button type="button" disabled={!guideId || unsaved || identity?.role === "member" || exportJob?.status === "running"} onClick={() => { void startExport("docx"); }}><FileText size={15} /> DOCX</button>
+            </div>
             {identity && <AccountControl name={identity.name} role={identity.role} />}
           </div>
         </header>
+        {(exportJob || exportMessage) && (
+          <div className={`export-status export-status--${exportJob?.status ?? "error"}`} role="status">
+            <span>{exportMessage ?? `${exportJob!.format.toUpperCase()} export ${exportJob!.status}`}</span>
+            {exportJob && ["queued", "running"].includes(exportJob.status) && <button type="button" onClick={() => { void updateExport("DELETE"); }}><X size={14} /> Cancel</button>}
+            {exportJob?.status === "failed" && <button type="button" onClick={() => { void updateExport("POST"); }}><RotateCcw size={14} /> Retry</button>}
+            {exportJob?.status === "completed" && exportJob.downloadUrl && <a href={exportJob.downloadUrl} download><Download size={14} /> Download</a>}
+          </div>
+        )}
         {selectedStep ? (
           <div className="editor-content">
             <div className="media-tools" aria-label="Media tools">

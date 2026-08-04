@@ -19,7 +19,10 @@ This Windows installation cannot create Corepack shims under `C:\Program Files\n
 
 ```powershell
 corepack pnpm install
+corepack pnpm run install:pdf-browser
 ```
+
+Set `CAPCHUR_SIGNING_SECRET` to at least 32 characters for local storage-backed APIs. Production also requires `DATABASE_URL`, `S3_BUCKET`, and standard AWS credentials.
 
 ## Develop
 

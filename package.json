@@ -9,6 +9,7 @@
     "scripts": {
         "dev:extension": "corepack pnpm --filter @capchur/extension dev",
         "dev:web": "corepack pnpm --filter @capchur/web dev",
+        "install:pdf-browser": "corepack pnpm --filter @capchur/web browsers:install",
         "build": "corepack pnpm --recursive build",
         "typecheck": "corepack pnpm --filter @capchur/contracts build && corepack pnpm --filter @capchur/capture-core build && corepack pnpm --filter @capchur/export-core build && corepack pnpm --filter @capchur/extension compile && corepack pnpm --filter @capchur/web exec tsc --noEmit",
         "lint": "corepack pnpm --filter @capchur/web lint",

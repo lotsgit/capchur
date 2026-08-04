@@ -135,4 +135,45 @@ describe("GuideEditor", () => {
     expect((screen.getByLabelText("Step title") as HTMLInputElement).value).toBe("My local edit");
     expect(screen.getByText("Unsaved changes")).toBeTruthy();
   });
+
+  it("queues an export, polls its status, and presents the signed download", async () => {
+    const job = {
+      id: "0198f1d0-c184-7000-8000-000000000399",
+      guideId: guide.id,
+      format: "pdf",
+      status: "queued",
+      attempts: 0,
+      createdAt: 200,
+      updatedAt: 200,
+      expiresAt: 86_400_200,
+      error: null,
+      downloadUrl: null,
+    } as const;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json(guide))
+      .mockResolvedValueOnce(Response.json(job, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({
+        ...job,
+        status: "completed",
+        attempts: 1,
+        updatedAt: 300,
+        downloadUrl: "/api/images/content?token=signed-export",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<GuideEditor
+      guideId={guide.id}
+      fixtureLoader={() => Promise.resolve(guide)}
+      identity={{ name: "Owner", role: "owner" }}
+    />);
+
+    await screen.findByLabelText("Step title");
+    await user.click(screen.getByRole("button", { name: "PDF" }));
+    expect(await screen.findByText("PDF export queued")).toBeTruthy();
+    const download = await screen.findByRole("link", { name: "Download" }, { timeout: 3_000 });
+
+    expect(download.getAttribute("href")).toBe("/api/images/content?token=signed-export");
+    expect(fetchMock).toHaveBeenCalledWith(`/api/guides/${guide.id}/exports`, expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(`/api/exports/${job.id}`);
+  });
 });

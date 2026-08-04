@@ -2,12 +2,17 @@ import { createAuth, WorkspaceAuthenticator } from "./auth";
 import { ExtensionApi, PersistenceApi } from "./api";
 import { getDatabase } from "./db";
 import { ExtensionAuthorizationService } from "./extension-auth";
+import { ExportApi } from "./export-api";
+import { createExportJobRepository } from "./export-job-repository";
+import { ExportService } from "./export-service";
 import { createEnvironmentObjectStorage } from "./object-storage";
 import { createPersistenceRepository } from "./persistence-repository";
 
 const globalRuntime = globalThis as typeof globalThis & {
   capchurAuth?: Promise<ReturnType<typeof createAuth>>;
   capchurExtensionApi?: Promise<ExtensionApi>;
+  capchurExportApi?: Promise<ExportApi>;
+  capchurExportService?: Promise<ExportService>;
   capchurPersistenceApi?: Promise<PersistenceApi>;
 };
 
@@ -71,4 +76,26 @@ export async function handleLocalDownload(request: Request): Promise<Response> {
     return Response.json({ error: "Local download is unavailable" }, { status: 404 });
   }
   return storage.serveDownload(token);
+}
+
+async function createExportRuntime(): Promise<{ api: ExportApi; service: ExportService }> {
+  const database = await getDatabase();
+  const authenticator = await getWorkspaceAuthenticator();
+  const guides = createPersistenceRepository(database);
+  const jobs = createExportJobRepository(database);
+  const storage = createEnvironmentObjectStorage();
+  return {
+    api: new ExportApi(authenticator, guides, jobs, storage),
+    service: new ExportService(jobs, guides, storage),
+  };
+}
+
+export function getExportApi(): Promise<ExportApi> {
+  globalRuntime.capchurExportApi ??= createExportRuntime().then(({ api }) => api);
+  return globalRuntime.capchurExportApi;
+}
+
+export function getExportService(): Promise<ExportService> {
+  globalRuntime.capchurExportService ??= createExportRuntime().then(({ service }) => service);
+  return globalRuntime.capchurExportService;
 }

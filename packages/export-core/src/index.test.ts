@@ -2,7 +2,7 @@ import type { Guide } from "@capchur/contracts";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
-import { createHtmlBundle, createMarkdownBundle, mapGuideToExportDocument } from "./index";
+import { createDocxFile, createHtmlBundle, createMarkdownBundle, mapGuideToExportDocument } from "./index";
 
 const guide: Guide = {
     version: 1,
@@ -56,8 +56,21 @@ describe("export document mapping", () => {
 });
 
 describe("portable bundles", () => {
+    it("creates a valid DOCX package from ordered, flattened guide content", async () => {
+        const file = await createDocxFile(guide, sourceImage);
+        const bytes = file.content as Uint8Array;
+
+        expect(file.path).toBe("guide.docx");
+        expect(file.mediaType).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        expect([...bytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
+        expect(bytes.byteLength).toBeGreaterThan(5_000);
+    });
+
     it("escapes HTML and references accessible local images in guide order", async () => {
-        const bundle = await createHtmlBundle(guide, sourceImage);
+        const bundle = await createHtmlBundle({
+            ...guide,
+            introduction: "Read https://example.com/runbook first",
+        }, sourceImage);
         const html = bundle.files[0].content;
 
         if (typeof html !== "string") throw new Error("Expected an HTML text entrypoint");
@@ -65,6 +78,11 @@ describe("portable bundles", () => {
         expect(html).toContain("Use A &amp; B");
         expect(html).not.toContain("<release>");
         expect(html).toContain('alt="Save [button]"');
+        expect(html).toContain('<a href="https://example.com/runbook">https://example.com/runbook</a>');
+        expect(html).toContain('@page{size:Letter');
+        expect(html).toContain('break-inside:avoid');
+        expect(html).toContain('max-height:7.2in');
+        expect(html).toContain('"Aptos","Segoe UI",sans-serif');
         expect(html.indexOf("Click [Save]")).toBeLessThan(html.indexOf("Second"));
         expect(bundle.files.map(({ path }) => path)).toEqual(["index.html", "assets/step-1.png"]);
     });
