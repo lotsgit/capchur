@@ -40,6 +40,7 @@ describe("authentication", () => {
       "0000_persistence.sql",
       "0001_pale_machine_man.sql",
       "0002_fair_puff_adder.sql",
+      "0003_misty_umar.sql",
     ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));

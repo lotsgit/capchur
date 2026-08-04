@@ -5,6 +5,7 @@ import {
     CapturedStepSchema,
     ClickCaptureSchema,
     ExtensionMessageSchema,
+    GuideUpdateRequestSchema,
     GuideWriteSchema,
     GuideSchema,
     ImageUploadIntentSchema,
@@ -79,12 +80,15 @@ const validGuide = {
     id: "0198f1d0-c184-7000-8000-000000000004",
     title: "Publish a product update",
     description: "Prepare and publish a release note.",
+    introduction: "",
+    branding: { name: "", accentColor: "#164c3b", logoUrl: null },
     updatedAt: 1_754_000_000_200,
     steps: [{
         id: "0198f1d0-c184-7000-8000-000000000005",
         position: 0,
         title: "Open the release editor",
         description: "Choose Releases from the workspace navigation.",
+        section: null,
         media: {
             type: "image",
             source: "/fixtures/release-editor.png",
@@ -96,6 +100,8 @@ const validGuide = {
             rect: { x: 48, y: 190, width: 176, height: 44 },
             coordinateSpace: "image-pixels",
             hidden: false,
+            crop: null,
+            redactions: [],
         },
     }],
 } as const;
@@ -291,6 +297,53 @@ describe("guide domain contracts", () => {
 
         expect(GuideWriteSchema.parse(write)).toEqual(write);
         expect(GuideWriteSchema.safeParse(validGuide).success).toBe(false);
+        expect(GuideUpdateRequestSchema.safeParse({
+            updatedAt: validGuide.updatedAt,
+            guide: write,
+        }).success).toBe(true);
+        expect(GuideUpdateRequestSchema.safeParse(write).success).toBe(false);
+    });
+
+    it("normalizes editable privacy and presentation metadata", () => {
+        const parsed = GuideSchema.parse({
+            ...validGuide,
+            introduction: "Before you begin",
+            branding: { name: "Capchur", accentColor: "#164c3b", logoUrl: null },
+            steps: [{
+                ...validGuide.steps[0],
+                section: "Preparation",
+                annotation: {
+                    rect: { x: 10, y: 20, width: 30, height: 40 },
+                    coordinateSpace: "image-pixels",
+                    crop: { x: 0, y: 0, width: 800, height: 600 },
+                    redactions: [{
+                        id: "0198f1d0-c184-7000-8000-000000000099",
+                        rect: { x: 50, y: 60, width: 70, height: 80 },
+                    }],
+                },
+            }],
+        });
+
+        expect(parsed.steps[0].annotation?.hidden).toBe(false);
+        expect(parsed.steps[0].annotation?.redactions).toHaveLength(1);
+        expect(parsed.branding.name).toBe("Capchur");
+    });
+
+    it("rejects invalid crop, redaction, and branding values", () => {
+        expect(GuideSchema.safeParse({
+            ...validGuide,
+            branding: { accentColor: "red" },
+        }).success).toBe(false);
+        expect(GuideSchema.safeParse({
+            ...validGuide,
+            steps: [{
+                ...validGuide.steps[0],
+                annotation: {
+                    rect: { x: 0, y: 0, width: 0, height: 10 },
+                    coordinateSpace: "image-pixels",
+                },
+            }],
+        }).success).toBe(false);
     });
 
     it("validates bounded image upload intents", () => {

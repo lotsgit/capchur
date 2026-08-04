@@ -1,5 +1,6 @@
 import type {
   GuideAnnotation,
+  GuideBranding,
   GuideMedia,
   RecordingSession,
 } from "@capchur/contracts";
@@ -115,6 +116,12 @@ export const guides = pgTable("guides", {
   version: integer("version").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
+  introduction: text("introduction").default("").notNull(),
+  branding: jsonb("branding").$type<GuideBranding>().default({
+    name: "",
+    accentColor: "#164c3b",
+    logoUrl: null,
+  }).notNull(),
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
@@ -128,6 +135,7 @@ export const guideSteps = pgTable(
     position: integer("position").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),
+    section: text("section"),
     media: jsonb("media").$type<GuideMedia | null>(),
     annotation: jsonb("annotation").$type<GuideAnnotation | null>(),
   },

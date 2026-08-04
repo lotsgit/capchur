@@ -82,6 +82,7 @@ describe("persistence API", () => {
       "0000_persistence.sql",
       "0001_pale_machine_man.sql",
       "0002_fair_puff_adder.sql",
+      "0003_misty_umar.sql",
     ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));
@@ -157,7 +158,8 @@ describe("persistence API", () => {
 
     const created = await api.guides(request("/api/guides", "POST", ownerToken, guideWrite));
     expect(created.status).toBe(201);
-    expect((await created.json()).id).toBe(guideId);
+    const createdGuide = await created.json();
+    expect(createdGuide.id).toBe(guideId);
 
     const read = await api.guide(request(`/api/guides/${guideId}`, "GET", ownerToken), guideId);
     expect(read.status).toBe(200);
@@ -177,10 +179,26 @@ describe("persistence API", () => {
       `/api/guides/${guideId}`,
       "PUT",
       ownerToken,
-      { ...guideWrite, title: "Persisted guide" },
+      {
+        updatedAt: createdGuide.updatedAt,
+        guide: { ...guideWrite, title: "Persisted guide" },
+      },
     ), guideId);
     expect(updated.status).toBe(200);
     expect((await updated.json()).title).toBe("Persisted guide");
+
+    const conflict = await api.guide(request(
+      `/api/guides/${guideId}`,
+      "PUT",
+      ownerToken,
+      {
+        updatedAt: createdGuide.updatedAt,
+        guide: { ...guideWrite, title: "Stale guide" },
+      },
+    ), guideId);
+    expect(conflict.status).toBe(409);
+    await expect((await api.guide(request(`/api/guides/${guideId}`, "GET", ownerToken), guideId)).json())
+      .resolves.toMatchObject({ title: "Persisted guide" });
 
     expect((await api.guide(request(`/api/guides/${guideId}`, "GET", otherToken), guideId)).status)
       .toBe(404);

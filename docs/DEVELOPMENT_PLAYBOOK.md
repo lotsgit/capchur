@@ -27,13 +27,13 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 ## Current State
 
-**Current milestone:** `S12 - Complete editing and privacy tools`
+**Current milestone:** `S13 - HTML and Markdown export`
 
 **Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, pure element analysis, approved-page click capture, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, and resilient extension-to-cloud session sync are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private image objects locally; production adapters target PostgreSQL and S3-compatible storage.
 
-**Last completed session:** `S11 - Extension authentication and sync`
+**Last completed session:** `S12 - Complete editing and privacy tools`
 
-**Next action:** Complete S12 only. Add the remaining guide editing and privacy tools.
+**Next action:** Complete S13 only. Establish the framework-independent HTML and Markdown export model.
 
 ## Product Goal
 
@@ -424,23 +424,25 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ### S12 - Complete Editing And Privacy Tools
 
-**Status:** `NEXT`
+**Status:** `DONE`
 
 **Goal:** Deliver expected guide editing tools with safe image handling.
 
 **Tasks:**
 
-- [ ] Add manual steps, duplicate, crop, zoom, and annotation controls.
-- [ ] Add movable/resizable highlights.
-- [ ] Add irreversible export redaction and editable source redaction metadata.
-- [ ] Add title, introduction, section, and branding controls.
-- [ ] Add undo/redo and autosave conflict handling.
+- [x] Add manual steps, duplicate, crop, zoom, and annotation controls.
+- [x] Add movable/resizable highlights.
+- [x] Add irreversible export redaction and editable source redaction metadata.
+- [x] Add title, introduction, section, and branding controls.
+- [x] Add undo/redo and autosave conflict handling.
 
 **Acceptance:** Users can produce a polished guide without editing raw JSON or images externally.
 
+**Validation evidence:** All 85 workspace tests passed, including immutable manual/duplicate/delete operations, annotation geometry, crop and redaction metadata, undo/redo, and stale autosave conflict preservation. Repository typecheck, lint, database migration generation, and production builds passed.
+
 ### S13 - HTML And Markdown Export
 
-**Status:** `PLANNED`
+**Status:** `NEXT`
 
 **Goal:** Establish a tested, framework-independent export model.
 
@@ -534,27 +536,27 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 ## Progress Summary
 
-| Session                | Status  | Commit / evidence | Notes                                                            |
-| ---------------------- | ------- | ----------------- | ---------------------------------------------------------------- |
-| S00 Workspace setup    | DONE    | `d7a0774`         | Baseline apps build successfully.                                |
-| S01 Test and contracts | DONE    | This commit       | Runtime contracts and focused tests passed.                      |
-| S02 Recording state    | DONE    | This commit       | Persistent commands and restart recovery passed.                 |
-| S03 Popup controls     | DONE    | This commit       | Persisted controls and popup states passed.                      |
-| S04 Element analysis   | DONE    | This commit       | Deterministic privacy-safe metadata and locator fixtures passed. |
-| S05 Click capture      | DONE    | This commit       | Five ordered clicks persist through a validated sender boundary. |
-| S06 Screenshots        | DONE    | This commit       | Throttled screenshots and pixel-aligned metadata passed.         |
-| S07 Local review       | DONE    | This commit       | Persisted review mutations and archive round trips passed.       |
-| S08 Web editor         | DONE    | This commit       | Fixture editing and responsive workflow checks passed.           |
-| S09 Persistence API    | DONE    | This commit       | Transactional guides/sessions and signed image storage passed.   |
-| S10 Authentication     | DONE    | This commit       | Database sessions and workspace role isolation passed.           |
-| S11 Extension sync     | DONE    | This commit       | Resumable authenticated sync maps local sessions to guides.      |
-| S12 Complete editing   | NEXT    | -                 | Add complete editing and privacy controls.                       |
-| S13 HTML/Markdown      | PLANNED | -                 | Establishes export model.                                        |
-| S14 PDF/DOCX           | PLANNED | -                 | Depends on S13.                                                  |
-| S15 AI descriptions    | PLANNED | -                 | Deterministic fallback required.                                 |
-| S16 Collaboration      | PLANNED | -                 | Depends on authorization.                                        |
-| S17 Hardening          | PLANNED | -                 | Cross-browser evidence.                                          |
-| S18 Release            | PLANNED | -                 | Final gate.                                                      |
+| Session                | Status  | Commit / evidence | Notes                                                             |
+| ---------------------- | ------- | ----------------- | ----------------------------------------------------------------- |
+| S00 Workspace setup    | DONE    | `d7a0774`         | Baseline apps build successfully.                                 |
+| S01 Test and contracts | DONE    | This commit       | Runtime contracts and focused tests passed.                       |
+| S02 Recording state    | DONE    | This commit       | Persistent commands and restart recovery passed.                  |
+| S03 Popup controls     | DONE    | This commit       | Persisted controls and popup states passed.                       |
+| S04 Element analysis   | DONE    | This commit       | Deterministic privacy-safe metadata and locator fixtures passed.  |
+| S05 Click capture      | DONE    | This commit       | Five ordered clicks persist through a validated sender boundary.  |
+| S06 Screenshots        | DONE    | This commit       | Throttled screenshots and pixel-aligned metadata passed.          |
+| S07 Local review       | DONE    | This commit       | Persisted review mutations and archive round trips passed.        |
+| S08 Web editor         | DONE    | This commit       | Fixture editing and responsive workflow checks passed.            |
+| S09 Persistence API    | DONE    | This commit       | Transactional guides/sessions and signed image storage passed.    |
+| S10 Authentication     | DONE    | This commit       | Database sessions and workspace role isolation passed.            |
+| S11 Extension sync     | DONE    | This commit       | Resumable authenticated sync maps local sessions to guides.       |
+| S12 Complete editing   | DONE    | This commit       | Complete editing, privacy metadata, history, and autosave passed. |
+| S13 HTML/Markdown      | NEXT    | -                 | Establishes export model.                                         |
+| S14 PDF/DOCX           | PLANNED | -                 | Depends on S13.                                                   |
+| S15 AI descriptions    | PLANNED | -                 | Deterministic fallback required.                                  |
+| S16 Collaboration      | PLANNED | -                 | Depends on authorization.                                         |
+| S17 Hardening          | PLANNED | -                 | Cross-browser evidence.                                           |
+| S18 Release            | PLANNED | -                 | Final gate.                                                       |
 
 ## Decision Log
 
@@ -578,6 +580,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-03 | Authenticate S09 API requests through server-only bearer-token mappings until S10 introduces users, sessions, and workspaces.                           | S09 requires a trusted authorization boundary, while provider selection and complete workspace roles explicitly belong to S10.                               | `CAPCHUR_API_TOKENS` maps high-entropy development/service tokens to owner IDs; every repository operation scopes by owner; S10 must replace this transitional identity source without weakening repository authorization.                                     |
 | 2026-08-03 | Use Better Auth with its Drizzle adapter for web sessions while keeping workspace membership and authorization in Capchur-owned tables.                 | The web app needs maintained credential hashing, signed expiring cookies, and session revocation, while workspace data ownership remains a core domain rule. | New users receive an owner workspace; members may read workspace resources, only owners mutate them, every API and object lookup scopes by workspace, and S11 must use an extension-safe Better Auth flow without exposing long-lived secrets to page context. |
 | 2026-08-03 | Authorize the extension through browser identity using one-time codes and hashed one-hour bearer tokens, and sync through a durable worker-owned queue. | Page context must never receive extension credentials, while MV3 suspension, offline recording, and partial image uploads require persisted resumable state. | The extension requires `identity`, `alarms`, and access to the configured web origin; stable idempotency keys map each local session to one guide, screenshot checkpoints resume partial uploads, and stale cloud revisions require explicit local changes.    |
+| 2026-08-04 | Keep crop, highlight, and redaction edits as image-pixel metadata and use optimistic guide revisions for autosave.                                      | Original private screenshots must remain unchanged and concurrent editors must not silently overwrite newer work.                                            | S13/S14 exporters must flatten redactions irreversibly into output pixels; guide `PUT` requests carry the loaded revision and receive `409 EDIT_CONFLICT` when stale.                                                                                          |
 
 ## Known Risks
 
@@ -606,6 +609,7 @@ Append one concise row whenever a roadmap session is completed.
 | 2026-08-03 | S09     | Added transactional guide and captured-session persistence, authenticated validated APIs, restart-safe local storage, production PostgreSQL/S3 adapters, and signed image flows.       | 72 tests, migration check, typecheck, lint, production builds, and dependency audit passed; restart, authorization, rollback, and object consistency covered.                         | This commit |
 | 2026-08-03 | S10     | Replaced transitional bearer identities with Better Auth users and sessions, protected editor and auth flows, owner/member workspaces, and workspace-scoped persistence authorization. | 73 tests, typecheck, lint, production builds, dependency audit, and desktop/mobile browser flows passed; expiry, revocation, role enforcement, and cross-workspace isolation covered. | This commit |
 | 2026-08-03 | S11     | Added extension-safe browser authorization, a persistent resumable upload queue, idempotent session-to-guide mapping, partial screenshot sync, and mapped-guide handoff.               | 79 tests, typecheck, lint, production builds, manifest inspection, and desktop/mobile browser checks passed; retry, conflict, expiry, and one-time grant behavior covered.            | This commit |
+| 2026-08-04 | S12     | Added complete guide presentation, manual step, crop, zoom, highlight, redaction, history, and conflict-aware autosave tools without mutating source images.                           | 85 tests, typecheck, lint, migration generation, and production builds passed; stale writes, immutable metadata, privacy controls, and responsive editing covered.                    | This commit |
 
 ## Scope Changes
 

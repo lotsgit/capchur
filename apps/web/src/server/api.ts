@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   ExtensionAuthorizationExchangeSchema,
+  GuideUpdateRequestSchema,
   GuideWriteSchema,
   ImageUploadIntentSchema,
   RecordingSessionWriteSchema,
@@ -77,11 +78,21 @@ export class PersistenceApi {
     }
 
     if (request.method === "PUT") {
-      const parsed = GuideWriteSchema.safeParse(await parseJson(request));
+      const parsed = GuideUpdateRequestSchema.safeParse(await parseJson(request));
       if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Guide data is invalid");
       try {
-        const guide = await this.repository.updateGuide(workspaceId, guideId, parsed.data, this.now());
-        return guide ? Response.json(guide) : jsonError(404, "NOT_FOUND", "Guide not found");
+        const guide = await this.repository.updateGuide(
+          workspaceId,
+          guideId,
+          parsed.data.guide,
+          Math.max(this.now(), parsed.data.updatedAt + 1),
+          parsed.data.updatedAt,
+        );
+        if (guide) return Response.json(guide);
+        const current = await this.repository.getGuide(workspaceId, guideId);
+        return current
+          ? jsonError(409, "EDIT_CONFLICT", "The guide changed in another editor")
+          : jsonError(404, "NOT_FOUND", "Guide not found");
       } catch {
         return jsonError(500, "PERSISTENCE_ERROR", "The guide could not be updated");
       }

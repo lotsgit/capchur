@@ -16,7 +16,7 @@
 * { box-sizing: border-box; }
 html, body { min-width: 320px; min-height: 100%; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-manrope), sans-serif; }
-button, input, textarea { font: inherit; }
+button, input, textarea, output { font: inherit; }
 button, a, input, textarea { outline-color: var(--forest); }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
@@ -46,10 +46,14 @@ h1, h2 { margin: 0; font-family: var(--font-newsreader), serif; }
 .save-state { color: var(--forest); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .save-state--unsaved { color: #a34820; }
 .guide-copy { display: grid; gap: 8px; padding: 26px 22px 22px; border-bottom: 1px solid var(--line); }
-.guide-copy label, .step-editor label { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.guide-copy label, .step-editor label, .annotation-editor label { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .guide-title-input { min-width: 0; border: 0; background: transparent; font-family: var(--font-newsreader), serif; font-size: 27px; font-weight: 650; letter-spacing: 0; }
 textarea { resize: vertical; }
-.guide-copy textarea { width: 100%; border: 0; background: transparent; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.guide-copy textarea, .guide-copy > input:not(.guide-title-input), .branding-fields input { width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.guide-copy textarea:focus, .guide-copy > input:not(.guide-title-input):focus, .branding-fields input:focus { border-color: var(--line); background: #fbfcfa; }
+.branding-fields { display: grid; grid-template-columns: minmax(0, 1fr) 62px; gap: 10px; }
+.branding-fields label { display: grid; gap: 5px; }
+.branding-fields input[type="color"] { min-height: 32px; padding: 2px; }
 .steps-heading { padding: 20px 22px 12px; }
 .eyebrow { margin: 0 0 3px; color: #777d76; font-size: 9px; font-weight: 850; text-transform: uppercase; }
 .steps-heading h2 { font-size: 19px; }
@@ -81,13 +85,31 @@ textarea { resize: vertical; }
 .saved-message { display: inline-flex; align-items: center; gap: 5px; color: var(--forest); font-size: 11px; font-weight: 750; }
 .primary-button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 0 15px; border: 1px solid var(--forest); border-radius: 5px; background: var(--forest); color: #fff; font-size: 12px; font-weight: 800; }
 .editor-content { width: min(1080px, calc(100% - 48px)); margin: 0 auto; padding: clamp(24px, 4vw, 54px) 0 60px; }
+.media-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+.media-tools label, .media-tools button, .annotation-actions button { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); padding: 0 10px; color: var(--ink); font-size: 10px; font-weight: 750; }
+.media-tools label { margin-right: auto; }
+.media-tools input[type="range"] { width: 110px; accent-color: var(--forest); }
+.media-tools output { width: 36px; color: var(--muted); }
+.media-tools .danger-button { color: #9c2e23; }
 .media-section { margin-bottom: 24px; }
 .media-label { margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .media-canvas { position: relative; overflow: hidden; border: 1px solid #c8cbc4; border-radius: 7px; background: #dfe3de; box-shadow: 0 20px 45px rgba(42, 48, 40, .12); }
 .media-canvas img { object-fit: contain; }
+.media-zoom-layer { position: absolute; inset: 0; transform-origin: center; }
 .media-highlight { position: absolute; border: 3px solid var(--signal); background: rgba(240, 189, 59, .2); box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 3px 12px rgba(55, 24, 14, .3); pointer-events: none; }
+.media-redaction { position: absolute; background: repeating-linear-gradient(135deg, #181b18 0 5px, #2d322d 5px 10px); border: 2px solid #fff; box-shadow: 0 0 0 1px #181b18; }
+.media-crop { position: absolute; border: 2px dashed #fff; box-shadow: 0 0 0 9999px rgba(20, 24, 20, .45); pointer-events: none; }
 .media-canvas--empty { display: grid; min-height: 360px; place-content: center; justify-items: center; gap: 8px; color: var(--muted); }
-.step-editor { display: grid; gap: 9px; padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.step-editor, .annotation-editor { display: grid; gap: 9px; padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.annotation-editor { margin-bottom: 16px; }
+.annotation-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.geometry-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 8px 0 0; padding: 12px; border: 1px solid var(--line); }
+.geometry-fields legend { padding: 0 5px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.geometry-fields label, .redaction-row label { display: grid; gap: 4px; }
+.geometry-fields input, .redaction-row input { width: 100%; min-width: 0; border: 1px solid #cfd2cb; border-radius: 4px; padding: 7px; background: #fbfcfa; }
+.redaction-row { display: grid; grid-template-columns: 90px repeat(4, minmax(0, 1fr)) 34px; align-items: end; gap: 7px; padding: 10px; background: #f3f4f0; }
+.redaction-row strong { align-self: center; font-size: 11px; }
+.privacy-note { margin: 3px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .section-title { margin-bottom: 7px; }
 .section-title h2 { font-size: 21px; }
 .section-title > span { color: var(--muted); font-size: 10px; }
@@ -147,6 +169,13 @@ textarea { resize: vertical; }
   .account-control { gap: 0; padding-left: 8px; }
   .editor-content { width: calc(100% - 24px); padding: 20px 0 40px; }
   .step-editor { padding: 18px 14px; }
+  .annotation-editor { padding: 18px 14px; }
+  .media-tools { flex-wrap: wrap; justify-content: flex-start; }
+  .media-tools label { width: 100%; margin-right: 0; }
+  .media-tools input[type="range"] { flex: 1; }
+  .geometry-fields { grid-template-columns: 1fr 1fr; }
+  .redaction-row { grid-template-columns: 1fr 1fr; }
+  .redaction-row strong { grid-column: 1 / -1; }
   .section-title { align-items: flex-start; }
   .section-title h2 { font-size: 19px; }
   .auth-page { display: block; padding: 28px 0; }

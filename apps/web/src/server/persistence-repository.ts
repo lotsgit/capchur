@@ -37,7 +37,13 @@ export interface StoredObjectRecord extends ImageUploadIntent {
 export interface PersistenceRepository {
   createGuide(workspaceId: string, id: string, write: GuideWrite, now: number): Promise<Guide>;
   getGuide(workspaceId: string, guideId: string): Promise<Guide | null>;
-  updateGuide(workspaceId: string, guideId: string, write: GuideWrite, now: number): Promise<Guide | null>;
+  updateGuide(
+    workspaceId: string,
+    guideId: string,
+    write: GuideWrite,
+    now: number,
+    expectedUpdatedAt?: number,
+  ): Promise<Guide | null>;
   deleteGuide(workspaceId: string, guideId: string): Promise<string[]>;
   putSession(workspaceId: string, session: RecordingSession): Promise<RecordingSession>;
   getSession(workspaceId: string, sessionId: string): Promise<RecordingSession | null>;
@@ -72,12 +78,15 @@ function mapGuide(
     id: guide.id,
     title: guide.title,
     description: guide.description,
+    introduction: guide.introduction,
+    branding: guide.branding,
     updatedAt: guide.updatedAt,
     steps: steps.map((step) => ({
       id: step.id,
       position: step.position,
       title: step.title,
       description: step.description,
+      section: step.section,
       media: step.media,
       annotation: step.annotation,
     })),
@@ -129,17 +138,22 @@ function recordingSessionToGuide(session: RecordingSession): GuideWrite {
   return {
     title: "Captured guide",
     description: "Synced from a Capchur browser recording.",
+    introduction: "",
+    branding: { name: "", accentColor: "#164c3b", logoUrl: null },
     steps: session.steps.map((step, position) => ({
       id: step.id,
       position,
       title: step.description,
       description: step.pageTitle,
+      section: null,
       media: null,
       annotation: step.screenshot && step.highlight.coordinateSpace === "screenshot-pixels"
         ? {
             rect: step.highlight.rect,
             coordinateSpace: "image-pixels" as const,
             hidden: step.highlight.hidden,
+            crop: null,
+            redactions: [],
           }
         : null,
     })),
@@ -155,6 +169,8 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
         version: CONTRACT_VERSION,
         title: write.title,
         description: write.description,
+        introduction: write.introduction,
+        branding: write.branding,
         updatedAt: now,
       });
       await replaceSteps(database, id, write);
@@ -171,11 +187,21 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       return selectGuide(database, workspaceId, guideId);
     },
 
-    async updateGuide(workspaceId, guideId, write, now) {
+    async updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt) {
       const [updated] = await database
         .update(guides)
-        .set({ title: write.title, description: write.description, updatedAt: now })
-        .where(and(eq(guides.id, guideId), eq(guides.workspaceId, workspaceId)))
+        .set({
+          title: write.title,
+          description: write.description,
+          introduction: write.introduction,
+          branding: write.branding,
+          updatedAt: now,
+        })
+        .where(and(
+          eq(guides.id, guideId),
+          eq(guides.workspaceId, workspaceId),
+          expectedUpdatedAt === undefined ? undefined : eq(guides.updatedAt, expectedUpdatedAt),
+        ))
         .returning();
 
       if (!updated) {
@@ -266,6 +292,8 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
           version: CONTRACT_VERSION,
           title: write.title,
           description: write.description,
+          introduction: write.introduction,
+          branding: write.branding,
           updatedAt: now,
         });
         await replaceSteps(database, guideId, write);
@@ -288,6 +316,8 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
         await database.update(guides).set({
           title: write.title,
           description: write.description,
+          introduction: write.introduction,
+          branding: write.branding,
           updatedAt: now,
         }).where(and(eq(guides.id, mapping.guideId), eq(guides.workspaceId, workspaceId)));
         await replaceSteps(database, mapping.guideId, write);
@@ -420,9 +450,9 @@ export function createPersistenceRepository(handle: DatabaseHandle): Persistence
         return guide;
       });
     },
-    updateGuide(workspaceId, guideId, write, now) {
+    updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt) {
       return createTransactionalRepository(handle, (transaction) =>
-        transaction.updateGuide(workspaceId, guideId, write, now),
+        transaction.updateGuide(workspaceId, guideId, write, now, expectedUpdatedAt),
       );
     },
     syncSession(workspaceId, session, idempotencyKey, guideId, now) {

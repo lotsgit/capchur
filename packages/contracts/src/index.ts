@@ -129,10 +129,22 @@ export const GuideMediaSchema = z.strictObject({
     alt: z.string().trim().max(500),
 });
 
+const ImageRectSchema = ElementRectSchema.refine(
+    ({ x, y, width, height }) => x >= 0 && y >= 0 && width > 0 && height > 0,
+    "Image rectangles must have a positive size and nonnegative origin",
+);
+
+export const GuideRedactionSchema = z.strictObject({
+    id: IdSchema,
+    rect: ImageRectSchema,
+});
+
 export const GuideAnnotationSchema = z.strictObject({
-    rect: ElementRectSchema,
+    rect: ImageRectSchema,
     coordinateSpace: z.literal("image-pixels"),
     hidden: z.boolean().default(false),
+    crop: ImageRectSchema.nullable().default(null),
+    redactions: z.array(GuideRedactionSchema).max(100).default([]),
 });
 
 export const GuideStepSchema = z.strictObject({
@@ -140,8 +152,15 @@ export const GuideStepSchema = z.strictObject({
     position: z.number().int().nonnegative(),
     title: NonEmptyStringSchema,
     description: z.string().trim().max(5_000),
+    section: z.string().trim().max(200).nullable().default(null),
     media: GuideMediaSchema.nullable(),
     annotation: GuideAnnotationSchema.nullable(),
+});
+
+export const GuideBrandingSchema = z.strictObject({
+    name: z.string().trim().max(200).default(""),
+    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#164c3b"),
+    logoUrl: GuideMediaSourceSchema.nullable().default(null),
 });
 
 export const GuideSchema = z.strictObject({
@@ -149,6 +168,12 @@ export const GuideSchema = z.strictObject({
     id: IdSchema,
     title: NonEmptyStringSchema,
     description: z.string().trim().max(5_000),
+    introduction: z.string().trim().max(10_000).default(""),
+    branding: GuideBrandingSchema.default({
+        name: "",
+        accentColor: "#164c3b",
+        logoUrl: null,
+    }),
     updatedAt: TimestampSchema,
     steps: z.array(GuideStepSchema).max(500),
 }).superRefine((guide, context) => {
@@ -171,6 +196,12 @@ export const GuideSchema = z.strictObject({
 export const GuideWriteSchema = z.strictObject({
     title: NonEmptyStringSchema,
     description: z.string().trim().max(5_000),
+    introduction: z.string().trim().max(10_000).default(""),
+    branding: GuideBrandingSchema.default({
+        name: "",
+        accentColor: "#164c3b",
+        logoUrl: null,
+    }),
     steps: z.array(GuideStepSchema).max(500),
 }).superRefine((guide, context) => {
     const positions = new Set<number>();
@@ -187,6 +218,11 @@ export const GuideWriteSchema = z.strictObject({
 
         positions.add(step.position);
     }
+});
+
+export const GuideUpdateRequestSchema = z.strictObject({
+    updatedAt: TimestampSchema,
+    guide: GuideWriteSchema,
 });
 
 export const RecordingSessionWriteSchema = z.strictObject({
@@ -424,9 +460,11 @@ export type ExtensionSyncState = z.infer<typeof ExtensionSyncStateSchema>;
 export type ExtensionSyncStatus = z.infer<typeof ExtensionSyncStatusSchema>;
 export type GuideMedia = z.infer<typeof GuideMediaSchema>;
 export type GuideAnnotation = z.infer<typeof GuideAnnotationSchema>;
+export type GuideBranding = z.infer<typeof GuideBrandingSchema>;
 export type GuideStep = z.infer<typeof GuideStepSchema>;
 export type Guide = z.infer<typeof GuideSchema>;
 export type GuideWrite = z.infer<typeof GuideWriteSchema>;
+export type GuideUpdateRequest = z.infer<typeof GuideUpdateRequestSchema>;
 export type RecordingSessionWrite = z.infer<typeof RecordingSessionWriteSchema>;
 export type ImageUploadIntent = z.infer<typeof ImageUploadIntentSchema>;
 export type SignedImageUpload = z.infer<typeof SignedImageUploadSchema>;
