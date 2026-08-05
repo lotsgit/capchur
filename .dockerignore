@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+.data
+**/.next
+**/.wxt
+**/coverage
+**/dist
+**/node_modules
+**/out
+**/*.log
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+Thumbs.db

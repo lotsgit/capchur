@@ -53,6 +53,11 @@ defined in [docs/SECURITY_THREAT_MODEL.md](docs/SECURITY_THREAT_MODEL.md),
 [docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md), and
 [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md).
 
+## Deploy
+
+Production uses ECS Fargate, RDS PostgreSQL, private S3 storage, ACM, and Route 53. Follow the
+setup and release workflow in [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md).
+
 ## Structure
 
 ```text
