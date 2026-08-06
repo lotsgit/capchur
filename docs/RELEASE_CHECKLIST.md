@@ -41,7 +41,9 @@ The browser gate requires zero serious/critical Axe findings, no browser errors 
 - [ ] Record at least five actions across navigation; confirm values/passwords are absent and screenshots survive restart.
 - [ ] Review locally, sync once after simulated offline use, edit/reorder/redact, and resolve one stale edit conflict.
 - [ ] Verify private/workspace/revocable-link access and immediate revocation in a second profile.
-- [ ] Export HTML, Markdown, PDF, and DOCX; inspect redactions and a 50-step PDF/DOCX guide.
+- [ ] Export HTML and Markdown and confirm their portable layout and local assets remain unchanged.
+- [ ] Inspect 1-step, 5-step, and 50-step professional A4 PDFs in Firefox and Chrome: cover, contents links, section breaks, framed screenshots, headers, page numbers, adaptive pagination, links, highlights, and redactions.
+- [ ] Inspect the same DOCX guides in Microsoft Word and LibreOffice: title page, clickable contents, named heading hierarchy, headers, `Page X of Y`, non-splitting step blocks, captions, image aspect ratios, links, highlights, and redactions.
 - [ ] Confirm synced and manually created guides appear in the dashboard and PDF/DOCX controls are enabled after save.
 - [ ] Delete the rehearsal guide/session and verify source and export objects are unavailable.
 - [ ] Verify AI opt-in, redaction, timeout fallback, provider-off behavior, and usage-only logging.

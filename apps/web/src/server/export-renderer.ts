@@ -1,7 +1,7 @@
 import type { Guide } from "@capchur/contracts";
 import {
 	createDocxFile,
-	createHtmlBundle,
+	createPrintHtmlBundle,
 	type ExportImageResolver,
 } from "@capchur/export-core";
 import { chromium, type Browser } from "playwright";
@@ -14,7 +14,7 @@ export interface RenderedExport {
 
 type BrowserLauncher = () => Promise<Browser>;
 
-function inlineImages(html: string, files: Awaited<ReturnType<typeof createHtmlBundle>>["files"]): string {
+function inlineImages(html: string, files: Awaited<ReturnType<typeof createPrintHtmlBundle>>["files"]): string {
 	let inlined = html;
 	for (const file of files) {
 		if (typeof file.content === "string" || file.mediaType !== "image/png") continue;
@@ -24,12 +24,22 @@ function inlineImages(html: string, files: Awaited<ReturnType<typeof createHtmlB
 	return inlined;
 }
 
+function escapeTemplateText(value: string): string {
+	return value.replace(/[&<>"']/g, (character) => ({
+		"&": "&amp;",
+		"<": "&lt;",
+		">": "&gt;",
+		'"': "&quot;",
+		"'": "&#39;",
+	})[character]!);
+}
+
 export async function renderPdf(
 	guide: Guide,
 	resolveImage: ExportImageResolver,
 	launch: BrowserLauncher = () => chromium.launch({ headless: true }),
 ): Promise<RenderedExport> {
-	const bundle = await createHtmlBundle(guide, resolveImage);
+	const bundle = await createPrintHtmlBundle(guide, resolveImage);
 	const entrypoint = bundle.files.find(({ path }) => path === bundle.entrypoint);
 	if (!entrypoint || typeof entrypoint.content !== "string") {
 		throw new Error("PDF HTML entrypoint is missing");
@@ -40,12 +50,17 @@ export async function renderPdf(
 		const page = await browser.newPage();
 		await page.setContent(inlineImages(entrypoint.content, bundle.files), { waitUntil: "load" });
 		await page.emulateMedia({ media: "print" });
+		const brand = escapeTemplateText(guide.branding.name || "Capchur");
+		const title = escapeTemplateText(guide.title);
 		const bytes = await page.pdf({
-			format: "Letter",
+			format: "A4",
 			printBackground: true,
 			preferCSSPageSize: true,
 			tagged: true,
 			outline: true,
+			displayHeaderFooter: true,
+			headerTemplate: `<div style="box-sizing:border-box;width:100%;padding:0 16mm;color:#66706a;font:8px Arial,sans-serif"><span style="color:${guide.branding.accentColor};font-weight:700">${brand}</span><span style="float:right">${title}</span></div>`,
+			footerTemplate: `<div style="box-sizing:border-box;width:100%;padding:0 16mm;color:#66706a;font:8px Arial,sans-serif"><span>Professional guide</span><span style="float:right">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`,
 		});
 		return { bytes, mimeType: "application/pdf", extension: "pdf" };
 	} finally {

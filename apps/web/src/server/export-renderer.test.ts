@@ -51,9 +51,12 @@ describe("large guide rendering", () => {
 			renderDocx(guide, resolveImage),
 		]);
 		const parsedPdf = await PDFDocument.load(pdf.bytes);
+		const firstPage = parsedPdf.getPage(0);
 
 		expect(Buffer.from(pdf.bytes.subarray(0, 5)).toString()).toBe("%PDF-");
 		expect(parsedPdf.getPageCount()).toBeGreaterThanOrEqual(25);
+		expect(firstPage.getWidth()).toBeCloseTo(595.28, 0);
+		expect(firstPage.getHeight()).toBeCloseTo(841.89, 0);
 		expect([...docx.bytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
 		expect(docx.bytes.byteLength).toBeGreaterThan(50_000);
 		expect(resolvedImages).toBe(100);
