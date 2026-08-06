@@ -141,7 +141,7 @@ export function createSyncQueue(
     transport: SyncTransport,
     scheduleRetry: (when: number) => Promise<void>,
     now: () => number = Date.now,
-    createId: () => string = crypto.randomUUID,
+    createId: () => string = () => crypto.randomUUID(),
 ) {
     const storage = createStorage(storageArea);
     let running: Promise<ExtensionSyncStatus> | null = null;
