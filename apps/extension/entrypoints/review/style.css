@@ -132,8 +132,18 @@ h2 {
 .toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.connection-confirmation {
+  color: #4d554f;
+  font-size: 12px;
+}
+
+.connection-confirmation strong {
+  color: #173f32;
 }
 
 .toolbar button,

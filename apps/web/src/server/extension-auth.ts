@@ -7,6 +7,7 @@ import type { DatabaseHandle } from "./db";
 import {
   extensionAccessTokens,
   extensionAuthorizationCodes,
+  user,
 } from "./db/schema";
 
 const AUTHORIZATION_CODE_LIFETIME_MS = 5 * 60 * 1_000;
@@ -36,12 +37,18 @@ export class ExtensionAuthorizationService {
     return code;
   }
 
-  async exchangeCode(code: string): Promise<{ accessToken: string; expiresAt: number } | null> {
+  async exchangeCode(code: string): Promise<{ accessToken: string; expiresAt: number; userName: string } | null> {
     const [grant] = await this.database
       .delete(extensionAuthorizationCodes)
       .where(eq(extensionAuthorizationCodes.codeHash, hashCredential(code)))
       .returning();
     if (!grant || grant.expiresAt <= this.now()) return null;
+    const [account] = await this.database
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, grant.userId))
+      .limit(1);
+    if (!account) return null;
 
     const accessToken = createCredential();
     const expiresAt = this.now() + ACCESS_TOKEN_LIFETIME_MS;
@@ -52,7 +59,7 @@ export class ExtensionAuthorizationService {
       role: grant.role,
       expiresAt,
     });
-    return { accessToken, expiresAt };
+    return { accessToken, expiresAt, userName: account.name };
   }
 
   async authenticateToken(token: string): Promise<WorkspacePrincipal | null> {

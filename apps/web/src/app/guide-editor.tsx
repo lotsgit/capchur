@@ -8,7 +8,7 @@ import {
   Plus, Redo2, RotateCcw, Shield, Sparkles, Trash2,
   Undo2, X, ZoomIn,
 } from "lucide-react";
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import {
   AiDescriptionEnhancementResponseSchema,
@@ -384,7 +384,7 @@ export function GuideEditor({
               <button type="button" onClick={duplicateStep}><Copy size={15} /> Duplicate</button>
               <button type="button" className="danger-button" onClick={removeStep}><Trash2 size={15} /> Delete</button>
             </div>
-            <MediaCanvas step={selectedStep} zoom={zoom} />
+            <MediaCanvas step={selectedStep} zoom={zoom} onAnnotationChange={(annotation) => editSelectedStep({ annotation })} />
             {selectedStep.media && <AnnotationEditor step={selectedStep} onChange={(annotation) => editSelectedStep({ annotation })} />}
             <section className="step-editor" aria-labelledby="step-editor-heading">
               <div className="section-title"><div><p className="eyebrow">Instruction</p><h2 id="step-editor-heading">What should the reader do?</h2></div><span>{selectedStep.title.length}/2000</span></div>
@@ -432,7 +432,14 @@ export function GuideEditor({
   );
 }
 
-function MediaCanvas({ step, zoom }: { step: GuideStep; zoom: number }) {
+type ImageRect = { x: number; y: number; width: number; height: number };
+type ResizeCorner = "northwest" | "northeast" | "southwest" | "southeast";
+
+function MediaCanvas({ step, zoom, onAnnotationChange }: {
+  step: GuideStep;
+  zoom: number;
+  onAnnotationChange: (annotation: NonNullable<GuideStep["annotation"]>) => void;
+}) {
   if (!step.media) return <section className="media-canvas media-canvas--empty"><FolderOpen size={26} /><strong>No media for this step</strong></section>;
   const annotation = step.annotation;
   return (
@@ -442,15 +449,67 @@ function MediaCanvas({ step, zoom }: { step: GuideStep; zoom: number }) {
         <div className="media-zoom-layer" style={{ transform: `scale(${zoom / 100})` }}>
           <Image src={step.media.source} alt={step.media.alt} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 70vw, 56vw" priority unoptimized={step.media.source.startsWith("/api/images/private")} />
           {annotation && !annotation.hidden && <span className="media-highlight" aria-label="Highlighted target" style={rectStyle(annotation.rect, step)} />}
-          {annotation?.redactions.map((redaction) => <span key={redaction.id} className="media-redaction" aria-label="Redacted area" style={rectStyle(redaction.rect, step)} />)}
-          {annotation?.crop && <span className="media-crop" aria-label="Crop boundary" style={rectStyle(annotation.crop, step)} />}
+          {annotation?.redactions.map((redaction, index) => <ResizableImageRect key={redaction.id} className="media-redaction" boundaryLabel="Redacted area" controlLabel={`Redaction ${index + 1}`} rect={redaction.rect} step={step} onChange={(rect) => onAnnotationChange({ ...annotation, redactions: annotation.redactions.map((item) => item.id === redaction.id ? { ...item, rect } : item) })} />)}
+          {annotation?.crop && <ResizableImageRect className="media-crop" boundaryLabel="Crop boundary" controlLabel="Crop" rect={annotation.crop} step={step} onChange={(crop) => onAnnotationChange({ ...annotation, crop })} />}
         </div>
       </div>
     </section>
   );
 }
 
-function rectStyle(rect: { x: number; y: number; width: number; height: number }, step: GuideStep) {
+function resizeImageRect(rect: ImageRect, corner: ResizeCorner, deltaX: number, deltaY: number, imageWidth: number, imageHeight: number): ImageRect {
+  const right = rect.x + rect.width;
+  const bottom = rect.y + rect.height;
+  const nextLeft = corner.endsWith("west") ? Math.max(0, Math.min(right - 1, rect.x + deltaX)) : rect.x;
+  const nextTop = corner.startsWith("north") ? Math.max(0, Math.min(bottom - 1, rect.y + deltaY)) : rect.y;
+  const nextRight = corner.endsWith("east") ? Math.max(rect.x + 1, Math.min(imageWidth, right + deltaX)) : right;
+  const nextBottom = corner.startsWith("south") ? Math.max(rect.y + 1, Math.min(imageHeight, bottom + deltaY)) : bottom;
+  return { x: nextLeft, y: nextTop, width: nextRight - nextLeft, height: nextBottom - nextTop };
+}
+
+function ResizableImageRect({ className, boundaryLabel, controlLabel, rect, step, onChange }: {
+  className: string;
+  boundaryLabel: string;
+  controlLabel: string;
+  rect: ImageRect;
+  step: GuideStep;
+  onChange: (rect: ImageRect) => void;
+}) {
+  const drag = useRef<{ corner: ResizeCorner; rect: ImageRect; clientX: number; clientY: number; renderedWidth: number; renderedHeight: number } | null>(null);
+  const corners: ResizeCorner[] = ["northwest", "northeast", "southwest", "southeast"];
+
+  function startResize(event: PointerEvent<HTMLButtonElement>, corner: ResizeCorner) {
+    const renderedBounds = event.currentTarget.closest(".media-zoom-layer")?.getBoundingClientRect();
+    if (!renderedBounds?.width || !renderedBounds.height) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    drag.current = { corner, rect, clientX: event.clientX, clientY: event.clientY, renderedWidth: renderedBounds.width, renderedHeight: renderedBounds.height };
+  }
+
+  function continueResize(event: PointerEvent<HTMLButtonElement>) {
+    if (!drag.current) return;
+    const deltaX = (event.clientX - drag.current.clientX) * step.media!.width / drag.current.renderedWidth;
+    const deltaY = (event.clientY - drag.current.clientY) * step.media!.height / drag.current.renderedHeight;
+    onChange(resizeImageRect(drag.current.rect, drag.current.corner, deltaX, deltaY, step.media!.width, step.media!.height));
+  }
+
+  function resizeWithKeyboard(event: KeyboardEvent<HTMLButtonElement>, corner: ResizeCorner) {
+    const distance = event.shiftKey ? 10 : 1;
+    const deltaX = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
+    const deltaY = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
+    if (!deltaX && !deltaY) return;
+    event.preventDefault();
+    onChange(resizeImageRect(rect, corner, deltaX, deltaY, step.media!.width, step.media!.height));
+  }
+
+  return (
+    <span className={className} aria-label={boundaryLabel} style={rectStyle(rect, step)}>
+      {corners.map((corner) => <button key={corner} type="button" className={`resize-handle resize-handle--${corner}`} aria-label={`Resize ${controlLabel.toLowerCase()} from ${corner}`} title={`Resize ${controlLabel.toLowerCase()} from ${corner}`} onPointerDown={(event) => startResize(event, corner)} onPointerMove={continueResize} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={(event) => resizeWithKeyboard(event, corner)} />)}
+    </span>
+  );
+}
+
+function rectStyle(rect: ImageRect, step: GuideStep) {
   return {
     left: `${(rect.x / step.media!.width) * 100}%`,
     top: `${(rect.y / step.media!.height) * 100}%`,

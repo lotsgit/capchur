@@ -39,6 +39,11 @@ export function authorizeSync(sendMessage: SendMessage) {
   return sendSyncRequest({ type: 'sync.authorize' }, sendMessage);
 }
 
+export async function connectAndSync(session: RecordingSession, sendMessage: SendMessage) {
+  await enqueueSessionSync(session, sendMessage);
+  return authorizeSync(sendMessage);
+}
+
 export function enqueueSessionSync(session: RecordingSession, sendMessage: SendMessage) {
   return sendSyncRequest({ type: 'sync.enqueue', session }, sendMessage);
 }

@@ -37,7 +37,7 @@ describe("extension sync queue", () => {
     it("creates an idempotency key with the default browser crypto receiver", async () => {
         const storage = new MemoryStorage();
         const queue = createSyncQueue(storage, {
-            authorize: async () => ({ accessToken: "a".repeat(32), expiresAt: 100_000 }),
+            authorize: async () => ({ accessToken: "a".repeat(32), expiresAt: 100_000, userName: "Ada Lovelace" }),
             upload: async (_token, request) => ({
                 guideId: "0198f1d0-c184-7000-8000-000000000402",
                 sessionId: request.session.id,
@@ -45,12 +45,17 @@ describe("extension sync queue", () => {
             }),
         }, async () => undefined, () => 1_000);
 
-        await queue.authorize();
-        const synced = await queue.enqueue(session(
+        const queued = await queue.enqueue(session(
             "0198f1d0-c184-7000-8000-000000000400",
         ));
+        expect(queued.state).toBe("disconnected");
+        const synced = await queue.authorize();
 
-        expect(synced.state).toBe("synced");
+        expect(synced).toMatchObject({
+            state: "synced",
+            connectedUserName: "Ada Lovelace",
+            message: "Connected as Ada Lovelace. Session synced.",
+        });
     });
 
     it("retries an offline upload with one idempotency key and one guide mapping", async () => {
@@ -62,7 +67,7 @@ describe("extension sync queue", () => {
         let currentTime = 1_000;
         let offline = true;
         const queue = createSyncQueue(storage, {
-            authorize: async () => ({ accessToken: "a".repeat(32), expiresAt: 100_000 }),
+            authorize: async () => ({ accessToken: "a".repeat(32), expiresAt: 100_000, userName: "Grace Hopper" }),
             upload: async (_token, request, uploadedStepIds, markStepUploaded) => {
                 requests.push(request.idempotencyKey);
                 resumedStepIds.push([...uploadedStepIds]);
@@ -101,7 +106,7 @@ describe("extension sync queue", () => {
         let currentTime = 1_000;
         let uploadCount = 0;
         const queue = createSyncQueue(storage, {
-            authorize: async () => ({ accessToken: "b".repeat(32), expiresAt: 2_000 }),
+            authorize: async () => ({ accessToken: "b".repeat(32), expiresAt: 2_000, userName: "Katherine Johnson" }),
             upload: async (_token, request) => {
                 uploadCount += 1;
                 if (uploadCount === 2) {
@@ -132,6 +137,7 @@ describe("extension sync queue", () => {
         ));
         expect(expired).toMatchObject({
             state: "disconnected",
+            connectedUserName: null,
             message: "Sign in to continue syncing.",
         });
         expect(uploadCount).toBe(2);

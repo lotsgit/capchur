@@ -99,10 +99,16 @@ describe("authentication", () => {
     let currentTime = 1_000;
     const service = new ExtensionAuthorizationService(handle.database, () => currentTime);
     const principal = { userId: "extension-user", workspaceId: "workspace-a", role: "owner" as const };
+    await handle.database.insert(schema.user).values({
+      id: principal.userId,
+      name: "Ada Lovelace",
+      email: "ada-extension@example.com",
+    });
     const code = await service.issueCode(principal);
     const credential = await service.exchangeCode(code);
 
     expect(credential?.accessToken).toHaveLength(43);
+    expect(credential?.userName).toBe("Ada Lovelace");
     expect(await service.exchangeCode(code)).toBeNull();
     expect(await service.authenticateToken(credential?.accessToken ?? "")).toEqual(principal);
     const stored = await handle.database.select().from(schema.extensionAccessTokens);

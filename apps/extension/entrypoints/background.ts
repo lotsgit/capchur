@@ -1,6 +1,7 @@
 import {
     CONTRACT_VERSION,
     ExtensionAuthorizationSchema,
+    RecordingRequestMessageSchema,
     SignedImageUploadSchema,
     SyncRequestMessageSchema,
     type SyncRequestMessage,
@@ -209,11 +210,25 @@ export default defineBackground(() => {
     browser.runtime.onMessage.addListener((message, sender) => {
         const syncRequest = SyncRequestMessageSchema.safeParse(message);
         if (syncRequest.success) return handleSyncRequest(syncRequest.data);
-        return handleMessage(message, {
+        const recordingRequest = RecordingRequestMessageSchema.safeParse(message);
+        const response = handleMessage(message, {
             url: sender.url ?? sender.tab?.url,
             tabId: sender.tab?.id,
             windowId: sender.tab?.windowId,
         });
+        if (recordingRequest.success && recordingRequest.data.type === "recording.stop") {
+            return Promise.resolve(response).then(async (result) => {
+                if (result.ok && result.session?.status === "stopped") {
+                    try {
+                        await syncQueue.enqueue(result.session);
+                    } catch {
+                        // Recording remains durable locally even if queue persistence fails.
+                    }
+                }
+                return result;
+            });
+        }
+        return response;
     });
     browser.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === SYNC_RETRY_ALARM) void syncQueue.flush();

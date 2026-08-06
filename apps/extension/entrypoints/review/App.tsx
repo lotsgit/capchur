@@ -23,7 +23,7 @@ import {
   updateStepDescription,
 } from './review-client';
 import {
-  authorizeSync,
+  connectAndSync,
   enqueueSessionSync,
   loadSyncStatus,
   openSyncedGuide,
@@ -84,7 +84,13 @@ export default function App() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      setSession(await operation());
+      const nextSession = await operation();
+      setSession(nextSession);
+      if (nextSession?.status === 'stopped') {
+        enqueueSessionSync(nextSession, sendSyncMessage)
+          .then(setSyncStatus)
+          .catch(() => undefined);
+      }
       if (success) {
         setSuccessMessage(success);
       }
@@ -129,8 +135,8 @@ export default function App() {
     try {
       const status = await operation();
       setSyncStatus(status);
-      if (status.state === 'synced') setSuccessMessage('Session synced to your workspace.');
-      else if (status.message) setSuccessMessage(status.message);
+      if (status.message) setSuccessMessage(status.message);
+      else if (status.state === 'synced') setSuccessMessage('Session synced to your workspace.');
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -190,22 +196,13 @@ export default function App() {
             {syncStatus?.state === 'disconnected' && (
               <button
                 type="button"
-                disabled={isBusy}
-                onClick={() => void runSyncAction('connect', () => authorizeSync(sendSyncMessage))}
+                disabled={!session || isBusy}
+                onClick={() => session && void runSyncAction('connect', () => connectAndSync(session, sendSyncMessage))}
               >
-                {busyAction === 'connect' ? 'Connecting...' : 'Connect account'}
+                {busyAction === 'connect' ? 'Connecting & syncing...' : 'Connect & sync'}
               </button>
             )}
-            <button
-              type="button"
-              disabled={!session || isBusy}
-              onClick={() => session && void runSyncAction(
-                'sync',
-                () => enqueueSessionSync(session, sendSyncMessage),
-              )}
-            >
-              {busyAction === 'sync' ? 'Syncing...' : 'Sync session'}
-            </button>
+            {syncStatus?.connectedUserName && <span className="connection-confirmation">Connected as <strong>{syncStatus.connectedUserName}</strong></span>}
             {syncStatus?.state === 'retrying' && (
               <button
                 type="button"

@@ -321,6 +321,7 @@ export const ExtensionAuthorizationExchangeSchema = z.strictObject({
 export const ExtensionAuthorizationSchema = z.strictObject({
     accessToken: z.string().trim().min(32).max(512),
     expiresAt: TimestampSchema,
+    userName: NonEmptyStringSchema,
 });
 
 export const SessionSyncRequestSchema = z.strictObject({
@@ -350,6 +351,7 @@ export const ExtensionSyncStateSchema = z.enum([
 
 export const ExtensionSyncStatusSchema = z.strictObject({
     state: ExtensionSyncStateSchema,
+    connectedUserName: NonEmptyStringSchema.nullable(),
     sessionId: IdSchema.nullable(),
     guideId: IdSchema.nullable(),
     attempts: z.number().int().nonnegative(),

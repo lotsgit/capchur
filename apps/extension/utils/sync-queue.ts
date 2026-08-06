@@ -114,6 +114,7 @@ function visibleStatus(data: SyncQueueData, now: number): ExtensionSyncStatus {
     if (!job) {
         return {
             state: "disconnected",
+            connectedUserName: null,
             sessionId: null,
             guideId: null,
             attempts: 0,
@@ -126,6 +127,7 @@ function visibleStatus(data: SyncQueueData, now: number): ExtensionSyncStatus {
         state: disconnected && job.state !== "synced" && job.state !== "conflict"
             ? "disconnected"
             : job.state,
+        connectedUserName: disconnected ? null : data.credential?.userName ?? null,
         sessionId: job.request.session.id,
         guideId: job.guideId,
         attempts: job.attempts,
@@ -222,7 +224,13 @@ export function createSyncQueue(
             const data = await storage.load();
             data.credential = ExtensionAuthorizationSchema.parse(await transport.authorize());
             await storage.save(data);
-            return flush();
+            const status = await flush();
+            return {
+                ...status,
+                message: status.state === "synced"
+                    ? `Connected as ${data.credential.userName}. Session synced.`
+                    : `Connected as ${data.credential.userName}.`,
+            };
         },
         async enqueue(session: RecordingSession): Promise<ExtensionSyncStatus> {
             const data = await storage.load();

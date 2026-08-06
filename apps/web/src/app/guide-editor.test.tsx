@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -104,6 +104,21 @@ describe("GuideEditor", () => {
     await user.type(highlightX, "42");
     await user.click(screen.getByRole("button", { name: "Add redaction" }));
     expect(screen.getByLabelText("Redacted area")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Set crop" }));
+
+    const zoomLayer = screen.getByLabelText("Crop boundary").parentElement!;
+    vi.spyOn(zoomLayer, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, toJSON: () => ({}) });
+    const redactionHandle = screen.getByRole("button", { name: "Resize redaction 1 from southeast" });
+    fireEvent.pointerDown(redactionHandle, { pointerId: 1, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(redactionHandle, { pointerId: 1, clientX: 80, clientY: 60 });
+    fireEvent.pointerUp(redactionHandle, { pointerId: 1 });
+    expect((screen.getByLabelText("Redaction 1 width") as HTMLInputElement).value).toBe("320");
+    expect((screen.getByLabelText("Redaction 1 height") as HTMLInputElement).value).toBe("108");
+
+    const cropHandle = screen.getByRole("button", { name: "Resize crop from northwest" });
+    fireEvent.keyDown(cropHandle, { key: "ArrowRight", shiftKey: true });
+    expect((screen.getByLabelText("Crop x") as HTMLInputElement).value).toBe("10");
+    expect((screen.getByLabelText("Crop width") as HTMLInputElement).value).toBe("790");
 
     await user.click(screen.getByRole("button", { name: "Hide highlight" }));
     expect(screen.queryByLabelText("Highlighted target")).toBeNull();
