@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { RecordingSession } from '../../utils/contracts';
 import {
   classifyPageUrl,
   createRequest,
+  enablePageAccess,
   formatDuration,
   getPageOriginPattern,
   getSessionDuration,
@@ -68,6 +69,46 @@ describe('popup recording client', () => {
     expect(() => getPageOriginPattern('chrome://extensions')).toThrow(
       'cannot be recorded',
     );
+  });
+
+  it('requests Firefox page permission before checking and injecting the tab', async () => {
+    const calls: string[] = [];
+
+    await enablePageAccess(
+      { tabId: 42, url: 'https://example.com/settings' },
+      async (origin) => {
+        calls.push(`permission:${origin}`);
+        return true;
+      },
+      async (tabId) => {
+        calls.push(`tab:${tabId}`);
+        return { active: true, url: 'https://example.com/dashboard' };
+      },
+      async (tabId) => {
+        calls.push(`inject:${tabId}`);
+      },
+    );
+
+    expect(calls).toEqual([
+      'permission:https://example.com/*',
+      'tab:42',
+      'inject:42',
+    ]);
+  });
+
+  it('does not inspect or inject the tab when page permission is denied', async () => {
+    const getTab = vi.fn();
+    const injectContentScript = vi.fn();
+
+    await expect(enablePageAccess(
+      { tabId: 42, url: 'https://example.com/settings' },
+      async () => false,
+      getTab,
+      injectContentScript,
+    )).rejects.toThrow('Page access was denied');
+
+    expect(getTab).not.toHaveBeenCalled();
+    expect(injectContentScript).not.toHaveBeenCalled();
   });
 
   it('formats live and stopped session durations', () => {

@@ -10,6 +10,15 @@ export type PageAvailability =
   | { status: 'available' }
   | { status: 'permission-denied'; message: string }
   | { status: 'unavailable'; message: string };
+export interface ActivePage {
+  tabId: number;
+  url: string;
+}
+
+interface CurrentTab {
+  active: boolean;
+  url?: string;
+}
 
 type SendMessage = (message: RecordingRequestMessage) => Promise<unknown>;
 
@@ -121,4 +130,24 @@ export function getPageOriginPattern(url: string): string {
   }
 
   return `${parsedUrl.protocol}//${parsedUrl.hostname}/*`;
+}
+
+export async function enablePageAccess(
+  page: ActivePage,
+  requestPermission: (origin: string) => Promise<boolean>,
+  getTab: (tabId: number) => Promise<CurrentTab>,
+  injectContentScript: (tabId: number) => Promise<void>,
+): Promise<void> {
+  const origin = getPageOriginPattern(page.url);
+  const granted = await requestPermission(origin);
+  if (!granted) {
+    throw new Error('Page access was denied.');
+  }
+
+  const currentTab = await getTab(page.tabId);
+  if (!currentTab.active || !currentTab.url || getPageOriginPattern(currentTab.url) !== origin) {
+    throw new Error('The active tab changed. Open Capchur on the page you want to record.');
+  }
+
+  await injectContentScript(page.tabId);
 }

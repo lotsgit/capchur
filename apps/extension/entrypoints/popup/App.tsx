@@ -4,10 +4,11 @@ import './App.css';
 import type { RecordingSession } from '../../utils/contracts';
 import {
   classifyPageUrl,
+  enablePageAccess,
   formatDuration,
-  getPageOriginPattern,
   getSessionDuration,
   runRecordingCommand,
+  type ActivePage,
   type PageAvailability,
   type RecordingCommand,
 } from './recording-client';
@@ -26,6 +27,7 @@ function App() {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [busyCommand, setBusyCommand] = useState<BusyCommand | null>(null);
   const [pageAvailability, setPageAvailability] = useState<PageAvailability | null>(null);
+  const [activePage, setActivePage] = useState<ActivePage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -35,19 +37,25 @@ function App() {
 
     async function loadPopup() {
       try {
-        const [persistedSession, availability] = await Promise.all([
+        const [persistedSession, activeTab] = await Promise.all([
           runRecordingCommand('open-session', null, (message) =>
             browser.runtime.sendMessage(message),
           ),
           browser.tabs
             .query({ active: true, currentWindow: true })
-            .then((tabs) => classifyPageUrl(tabs[0]?.url))
-            .catch(() => classifyPageUrl(undefined)),
+            .then((tabs) => tabs[0])
+            .catch(() => undefined),
         ]);
 
         if (active) {
+          const availability = classifyPageUrl(activeTab?.url);
           setSession(persistedSession);
           setPageAvailability(availability);
+          setActivePage(
+            availability.status === 'available' && activeTab?.id !== undefined && activeTab.url
+              ? { tabId: activeTab.id, url: activeTab.url }
+              : null,
+          );
           setLoadState('ready');
         }
       } catch (error) {
@@ -108,22 +116,23 @@ function App() {
   }
 
   async function enableActiveTab(deniedSuffix: string) {
-    const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (!activeTab?.url || activeTab.id === undefined) {
+    if (!activePage) {
       throw new Error(`Capchur cannot access this tab. ${deniedSuffix}`);
     }
 
-    const granted = await browser.permissions.request({
-      origins: [getPageOriginPattern(activeTab.url)],
-    });
-    if (!granted) {
-      throw new Error(`Page access was denied. ${deniedSuffix}`);
+    try {
+      await enablePageAccess(
+        activePage,
+        (origin) => browser.permissions.request({ origins: [origin] }),
+        (tabId) => browser.tabs.get(tabId),
+        (tabId) => browser.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          files: ['/content-scripts/content.js'],
+        }).then(() => undefined),
+      );
+    } catch (error) {
+      throw new Error(`${toErrorMessage(error)} ${deniedSuffix}`);
     }
-
-    await browser.scripting.executeScript({
-      target: { tabId: activeTab.id, allFrames: true },
-      files: ['/content-scripts/content.js'],
-    });
   }
 
   const pageBlocked = pageAvailability?.status !== 'available';
