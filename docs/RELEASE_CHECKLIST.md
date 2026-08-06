@@ -34,11 +34,15 @@ The browser gate requires zero serious/critical Axe findings, no browser errors 
 ## Manual Rehearsal
 
 - [ ] Install the unpacked Chrome/Edge package and signed Firefox candidate in clean profiles.
-- [ ] Create an account, connect the extension, and verify denied permission and protected-page messaging.
+- [ ] Verify the public home, extension installation links, Help, and mobile navigation.
+- [ ] Create an account, show/hide the password, recover it by email, sign in, and change it from Settings.
+- [ ] Confirm a new account opens an empty guide dashboard rather than fixture content.
+- [ ] Connect the extension and verify denied permission and protected-page messaging.
 - [ ] Record at least five actions across navigation; confirm values/passwords are absent and screenshots survive restart.
 - [ ] Review locally, sync once after simulated offline use, edit/reorder/redact, and resolve one stale edit conflict.
 - [ ] Verify private/workspace/revocable-link access and immediate revocation in a second profile.
 - [ ] Export HTML, Markdown, PDF, and DOCX; inspect redactions and a 50-step PDF/DOCX guide.
+- [ ] Confirm synced and manually created guides appear in the dashboard and PDF/DOCX controls are enabled after save.
 - [ ] Delete the rehearsal guide/session and verify source and export objects are unavailable.
 - [ ] Verify AI opt-in, redaction, timeout fallback, provider-off behavior, and usage-only logging.
 - [ ] Confirm production TLS, private bucket policy, secret injection, alerts, backup freshness, and support/security/privacy mailboxes.

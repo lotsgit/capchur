@@ -46,6 +46,29 @@ async function createDefaultWorkspace(database: Database, userId: string, name: 
   });
 }
 
+async function sendPasswordResetEmail(input: { user: { email: string; name: string }; url: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.CAPCHUR_EMAIL_FROM;
+  if (!apiKey || !from) {
+    throw new Error("Password reset email delivery is not configured");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [input.user.email],
+      subject: "Reset your Capchur password",
+      text: `Hello ${input.user.name},\n\nReset your Capchur password using this one-time link:\n${input.url}\n\nThis link expires in 30 minutes. If you did not request this, you can ignore this email.`,
+    }),
+  });
+  if (!response.ok) throw new Error("Password reset email delivery failed");
+}
+
 export function createAuth(handle: DatabaseHandle) {
   const database = handle.database;
   return betterAuth({
@@ -57,6 +80,8 @@ export function createAuth(handle: DatabaseHandle) {
       enabled: true,
       minPasswordLength: 12,
       maxPasswordLength: 128,
+      resetPasswordTokenExpiresIn: 30 * 60,
+      sendResetPassword: ({ user, url }) => sendPasswordResetEmail({ user, url }),
     },
     session: {
       expiresIn: 60 * 60 * 24 * 7,

@@ -13,6 +13,10 @@ param(
     [string]$BootstrapStackName = 'capchur-production-bootstrap',
     [string]$RepositoryName = 'capchur-production-web',
     [string]$NotificationEmail = '',
+    [string]$ResetEmailSecretArn = '',
+    [string]$EmailFrom = '',
+    [string]$ChromeExtensionStoreUrl = '',
+    [string]$FirefoxExtensionStoreUrl = '',
     [string]$ImageTag = ''
 )
 
@@ -47,6 +51,10 @@ aws cloudformation deploy `
     "DomainName=$DomainName" `
     "HostedZoneId=$HostedZoneId" `
     "NotificationEmail=$NotificationEmail" `
+    "ResetEmailSecretArn=$ResetEmailSecretArn" `
+    "EmailFrom=$EmailFrom" `
+    "ChromeExtensionStoreUrl=$ChromeExtensionStoreUrl" `
+    "FirefoxExtensionStoreUrl=$FirefoxExtensionStoreUrl" `
     "ImageUri=$imageUri" `
     --capabilities CAPABILITY_IAM `
     --region $Region `

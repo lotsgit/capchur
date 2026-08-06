@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, CircleHelp, Copy, Crop,
-  Download, Eye, EyeOff, FileDown, FileText, FolderOpen, LayoutTemplate, LoaderCircle,
-  Play, Plus, Redo2, RotateCcw, Settings, Shield, Sparkles, Trash2,
+  ArrowDown, ArrowLeft, ArrowUp, Check, Copy, Crop,
+  Download, Eye, EyeOff, FileDown, FileText, FolderOpen, LoaderCircle,
+  Plus, Redo2, RotateCcw, Shield, Sparkles, Trash2,
   Undo2, X, ZoomIn,
 } from "lucide-react";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/guide-editor-state";
 import { loadGuideFixture } from "@/lib/guide-fixture";
 import { AccountControl } from "@/app/account-control";
+import { AppNavigation } from "@/app/app-navigation";
 import { CollaborationPanel } from "@/app/collaboration-panel";
 
 type LoadState = "loading" | "ready" | "error";
@@ -307,22 +309,11 @@ export function GuideEditor({
 
   return (
     <main className="editor-shell">
-      <aside className="workspace-rail" aria-label="Workspace navigation">
-        <a className="brand" href="#editor" aria-label="Capchur home">C</a>
-        <nav className="rail-nav" aria-label="Primary">
-          <RailLink label="Guides" active><FileText /></RailLink>
-          <RailLink label="Templates"><LayoutTemplate /></RailLink>
-          <RailLink label="Capture"><Play /></RailLink>
-        </nav>
-        <nav className="rail-nav rail-nav--bottom" aria-label="Support">
-          <RailLink label="Help"><CircleHelp /></RailLink>
-          <RailLink label="Settings"><Settings /></RailLink>
-        </nav>
-      </aside>
+      <AppNavigation active="guides" />
 
       <section className="guide-panel" aria-label="Guide details">
         <div className="panel-heading">
-          <a className="back-link" href="#guides"><ArrowLeft size={15} /> All guides</a>
+          <Link className="back-link" href="/"><ArrowLeft size={15} /> All guides</Link>
           <span className={`save-state ${unsaved ? "save-state--unsaved" : ""}`} role="status">{unsaved ? "Unsaved changes" : "Draft saved"}</span>
         </div>
         <div className="guide-copy">
@@ -439,10 +430,6 @@ export function GuideEditor({
       </section>
     </main>
   );
-}
-
-function RailLink({ children, label, active = false }: { children: React.ReactNode; label: string; active?: boolean }) {
-  return <a className={active ? "active" : ""} href={`#${label.toLowerCase()}`} title={label} aria-label={label}>{children}<span>{label}</span></a>;
 }
 
 function MediaCanvas({ step, zoom }: { step: GuideStep; zoom: number }) {

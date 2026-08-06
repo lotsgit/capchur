@@ -16,6 +16,22 @@ Parameters:
     Type: String
     Default: ""
     Description: Optional operator email address for production alarms.
+  ResetEmailSecretArn:
+    Type: String
+    Default: ""
+    Description: Optional ARN of an operator-managed Secrets Manager secret containing the Resend apiKey field.
+  EmailFrom:
+    Type: String
+    Default: ""
+    Description: Verified sender address for password reset messages, for example Capchur <account@capchur.io>.
+  ChromeExtensionStoreUrl:
+    Type: String
+    Default: ""
+    Description: Optional HTTPS Chrome or Edge extension listing URL.
+  FirefoxExtensionStoreUrl:
+    Type: String
+    Default: ""
+    Description: Optional HTTPS Firefox extension listing URL.
   ImageUri:
     Type: String
     Description: Immutable ECR image URI including its tag.
@@ -39,6 +55,7 @@ Parameters:
 
 Conditions:
   HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+  HasResetEmailSecret: !Not [!Equals [!Ref ResetEmailSecretArn, ""]]
 
 Resources:
   Vpc:
@@ -366,6 +383,11 @@ Resources:
                 Resource:
                   - !Ref DatabaseSecret
                   - !Ref AuthenticationSecret
+                  - !If [
+                      HasResetEmailSecret,
+                      !Ref ResetEmailSecretArn,
+                      !Ref AWS::NoValue,
+                    ]
 
   TaskRole:
     Type: AWS::IAM::Role
@@ -435,11 +457,22 @@ Resources:
               Value: !Ref AWS::Region
             - Name: BETTER_AUTH_URL
               Value: !Sub https://${DomainName}
+            - Name: CAPCHUR_EMAIL_FROM
+              Value: !Ref EmailFrom
+            - Name: CHROME_EXTENSION_STORE_URL
+              Value: !Ref ChromeExtensionStoreUrl
+            - Name: FIREFOX_EXTENSION_STORE_URL
+              Value: !Ref FirefoxExtensionStoreUrl
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DatabaseSecret}:password::"
             - Name: BETTER_AUTH_SECRET
               ValueFrom: !Ref AuthenticationSecret
+            - !If
+              - HasResetEmailSecret
+              - Name: RESEND_API_KEY
+                ValueFrom: !Sub "${ResetEmailSecretArn}:apiKey::"
+              - !Ref AWS::NoValue
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp

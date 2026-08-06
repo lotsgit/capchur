@@ -71,7 +71,21 @@ The hosted zone must be in the same AWS account used by the deployment. CloudFor
 
 ## 4. Run The First Deployment
 
-Supply an email address to receive alarms:
+Create an operator-managed Secrets Manager secret for password reset delivery. Do not put the API key in PowerShell history or a CloudFormation parameter:
+
+```powershell
+$resetEmailSecretArn = aws secretsmanager create-secret `
+  --name capchur-production-reset-email `
+  --secret-string file://reset-email-secret.json `
+  --query ARN `
+  --output text `
+  --region $region `
+  --no-cli-pager
+```
+
+Create `reset-email-secret.json` outside the repository with the shape `{ "apiKey": "..." }`, run the command, and securely delete the local file. The sender domain must already be verified by the email provider.
+
+Supply the secret ARN, verified sender, alarm email, and browser-store URLs when they are available:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -79,8 +93,14 @@ Set-ExecutionPolicy -Scope Process Bypass
   -DomainName $domainName `
   -HostedZoneId $hostedZoneId `
   -Region $region `
-  -NotificationEmail "operations@example.com"
+  -NotificationEmail "operations@example.com" `
+  -ResetEmailSecretArn $resetEmailSecretArn `
+  -EmailFrom "Capchur <account@capchur.io>" `
+  -ChromeExtensionStoreUrl "https://chromewebstore.google.com/detail/..." `
+  -FirefoxExtensionStoreUrl "https://addons.mozilla.org/firefox/addon/..."
 ```
+
+Store URL arguments may remain empty until store approval. `ResetEmailSecretArn` and `EmailFrom` are required before password recovery UAT and publication.
 
 The script shows the active AWS identity, packages the workspace without Git metadata, local environment files, dependencies, or generated output, uploads that archive to a private seven-day S3 build bucket, and asks CodeBuild to build and push the Linux image. It then creates the production stack and prints the application URL and operational resource names.
 
@@ -98,7 +118,7 @@ Wait for the ECS service to report one running task, then check the public healt
 Invoke-RestMethod "https://$domainName/api/health"
 ```
 
-The response must contain `status` with the value `ok`. Open `https://capchur.io`, create a rehearsal account, and verify sign-in, guide creation, screenshot upload, and PDF export. The first database-backed request applies forward-only Drizzle migrations.
+The response must contain `status` with the value `ok`. Open `https://capchur.io`, create a rehearsal account, verify password recovery, then verify sign-in, guide creation, screenshot upload, and PDF export. The first database-backed request applies forward-only Drizzle migrations.
 
 To inspect service logs:
 

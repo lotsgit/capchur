@@ -54,9 +54,22 @@ export class PersistenceApi {
   }
 
   async guides(request: Request): Promise<Response> {
-    if (request.method !== "POST") return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
-    const authorization = await this.authorize(request, true);
+    if (!(["GET", "POST"] as const).includes(request.method as "GET" | "POST")) {
+      return jsonError(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+    }
+    const authorization = await this.authorize(request, request.method === "POST");
     if (authorization instanceof Response) return authorization;
+
+    if (request.method === "GET") {
+      const workspaceGuides = await this.repository.listGuides(authorization.workspaceId);
+      if (authorization.role === "owner" || !this.collaboration) {
+        return Response.json(workspaceGuides);
+      }
+      const visibleGuides = await Promise.all(workspaceGuides.map(async (guide) =>
+        await this.canReadGuide(authorization, guide.id) ? guide : null,
+      ));
+      return Response.json(visibleGuides.filter((guide): guide is NonNullable<typeof guide> => guide !== null));
+    }
 
     const parsed = GuideWriteSchema.safeParse(await parseJson(request));
     if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Guide data is invalid");

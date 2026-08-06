@@ -8,7 +8,7 @@ import {
   type ImageUploadIntent,
   type RecordingSession,
 } from "@capchur/contracts";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import type {
   CapchurDatabase,
@@ -38,6 +38,7 @@ export interface StoredObjectRecord extends ImageUploadIntent {
 
 export interface PersistenceRepository {
   createGuide(workspaceId: string, id: string, write: GuideWrite, now: number): Promise<Guide>;
+  listGuides(workspaceId: string): Promise<Guide[]>;
   getGuide(workspaceId: string, guideId: string): Promise<Guide | null>;
   updateGuide(
     workspaceId: string,
@@ -184,6 +185,19 @@ function createRepositoryForDatabase(database: DatabaseQueryHandle): Persistence
       }
 
       return guide;
+    },
+
+    async listGuides(workspaceId) {
+      const records = await database
+        .select({ id: guides.id })
+        .from(guides)
+        .where(eq(guides.workspaceId, workspaceId))
+        .orderBy(desc(guides.updatedAt));
+
+      const workspaceGuides = await Promise.all(
+        records.map(({ id }) => selectGuide(database, workspaceId, id)),
+      );
+      return workspaceGuides.filter((guide): guide is Guide => guide !== null);
     },
 
     getGuide(workspaceId, guideId) {

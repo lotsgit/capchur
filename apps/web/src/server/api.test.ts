@@ -162,6 +162,14 @@ describe("persistence API", () => {
     const createdGuide = await created.json();
     expect(createdGuide.id).toBe(guideId);
 
+    const ownerGuides = await api.guides(request("/api/guides", "GET", ownerToken));
+    expect(ownerGuides.status).toBe(200);
+    expect(await ownerGuides.json()).toEqual([createdGuide]);
+
+    const otherGuides = await api.guides(request("/api/guides", "GET", otherToken));
+    expect(otherGuides.status).toBe(200);
+    expect(await otherGuides.json()).toEqual([]);
+
     const read = await api.guide(request(`/api/guides/${guideId}`, "GET", ownerToken), guideId);
     expect(read.status).toBe(200);
 
