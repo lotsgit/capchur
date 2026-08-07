@@ -8,6 +8,7 @@ import {
   formatDuration,
   getPageOriginPattern,
   getSessionDuration,
+  RECORDING_ORIGIN_PATTERNS,
   runRecordingCommand,
 } from './recording-client';
 
@@ -76,8 +77,8 @@ describe('popup recording client', () => {
 
     await enablePageAccess(
       { tabId: 42, url: 'https://example.com/settings' },
-      async (origin) => {
-        calls.push(`permission:${origin}`);
+      async (origins) => {
+        calls.push(`permission:${origins.join(',')}`);
         return true;
       },
       async (tabId) => {
@@ -90,10 +91,14 @@ describe('popup recording client', () => {
     );
 
     expect(calls).toEqual([
-      'permission:https://example.com/*',
+      'permission:<all_urls>',
       'tab:42',
       'inject:42',
     ]);
+  });
+
+  it('requests optional all-sites access so popup windows can be captured', () => {
+    expect(RECORDING_ORIGIN_PATTERNS).toEqual(['<all_urls>']);
   });
 
   it('does not inspect or inject the tab when page permission is denied', async () => {

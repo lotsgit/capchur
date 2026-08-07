@@ -123,7 +123,7 @@ function App() {
     try {
       await enablePageAccess(
         activePage,
-        (origin) => browser.permissions.request({ origins: [origin] }),
+        (origins) => browser.permissions.request({ origins: [...origins] }),
         (tabId) => browser.tabs.get(tabId),
         (tabId) => browser.scripting.executeScript({
           target: { tabId, allFrames: true },

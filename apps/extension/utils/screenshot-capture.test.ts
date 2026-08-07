@@ -139,7 +139,7 @@ describe("screenshot capture", () => {
             windowId: 2,
         });
 
-        expect(delay.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([100, 100, 400]);
+        expect(delay.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([100, 100, 500]);
         expect(saveImage).toHaveBeenCalledTimes(2);
         expect(first).toMatchObject({
             screenshot: { width: 1280, height: 720 },

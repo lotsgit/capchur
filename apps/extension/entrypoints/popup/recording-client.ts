@@ -21,6 +21,7 @@ interface CurrentTab {
 }
 
 type SendMessage = (message: RecordingRequestMessage) => Promise<unknown>;
+export const RECORDING_ORIGIN_PATTERNS = ['<all_urls>'] as const;
 
 const unavailableProtocols = new Set([
   'about:',
@@ -134,12 +135,12 @@ export function getPageOriginPattern(url: string): string {
 
 export async function enablePageAccess(
   page: ActivePage,
-  requestPermission: (origin: string) => Promise<boolean>,
+  requestPermission: (origins: readonly string[]) => Promise<boolean>,
   getTab: (tabId: number) => Promise<CurrentTab>,
   injectContentScript: (tabId: number) => Promise<void>,
 ): Promise<void> {
   const origin = getPageOriginPattern(page.url);
-  const granted = await requestPermission(origin);
+  const granted = await requestPermission(RECORDING_ORIGIN_PATTERNS);
   if (!granted) {
     throw new Error('Page access was denied.');
   }

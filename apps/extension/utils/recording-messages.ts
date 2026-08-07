@@ -25,6 +25,7 @@ interface RecordingMessageHandlerOptions {
     createId?: () => string;
     attachScreenshot?: AttachScreenshot;
     retryScreenshot?: (step: CapturedStep) => Promise<ScreenshotAttachment>;
+    reportScreenshotError?: (error: unknown) => void;
     deleteScreenshot?: (storageKey: string) => Promise<void>;
     clearScreenshots?: () => Promise<void>;
 }
@@ -126,7 +127,8 @@ async function handleRecordingMessage(
                 };
                 await storage.save(capturedSession);
                 return successResponse(message.requestId, capturedSession);
-            } catch {
+            } catch (error) {
+                options.reportScreenshotError?.(error);
                 return successResponse(message.requestId, session);
             }
         }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CONTRACT_VERSION } from "./contracts";
 import { createRecordingMessageHandler } from "./recording-messages";
@@ -320,6 +320,7 @@ describe("recording service-worker messages", () => {
 
     it("keeps the persisted step when screenshot capture fails", async () => {
         const storageArea = new FakeStorageArea();
+        const reportScreenshotError = vi.fn();
         const screenshotStepId = "0198f1d0-c184-7000-8000-000000000010";
         const ids = [sessionId, screenshotStepId];
         const handler = createRecordingMessageHandler(
@@ -330,6 +331,7 @@ describe("recording service-worker messages", () => {
                 attachScreenshot: async () => {
                     throw new Error("Visible-tab capture was denied.");
                 },
+                reportScreenshotError,
             },
         );
         await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
@@ -347,6 +349,9 @@ describe("recording service-worker messages", () => {
         });
         expect(storageArea.values.recordingSession).toEqual(
             response.ok ? response.session : null,
+        );
+        expect(reportScreenshotError).toHaveBeenCalledWith(
+            expect.objectContaining({ message: "Visible-tab capture was denied." }),
         );
     });
 

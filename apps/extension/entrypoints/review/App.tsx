@@ -343,9 +343,8 @@ export default function App() {
                 onRetry={() => runAction(
                   `retry-${step.id}`,
                   async () => {
-                    const sourceUrl = new URL(step.url);
                     const granted = await browser.permissions.request({
-                      origins: [`${sourceUrl.protocol}//${sourceUrl.hostname}/*`],
+                      origins: ['<all_urls>'],
                     });
                     if (!granted) {
                       throw new Error('Page access was denied. The screenshot was not retried.');

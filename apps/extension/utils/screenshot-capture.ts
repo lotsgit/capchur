@@ -6,7 +6,7 @@ import type {
     Viewport,
 } from "@capchur/contracts";
 
-const DEFAULT_MINIMUM_CAPTURE_INTERVAL_MS = 500;
+const DEFAULT_MINIMUM_CAPTURE_INTERVAL_MS = 600;
 const DEFAULT_RENDER_SETTLE_DELAY_MS = 100;
 
 export interface ScreenshotAttachment {

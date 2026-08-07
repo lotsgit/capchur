@@ -9,10 +9,11 @@ S17 supports Capchur recording in current Chrome, Edge, and Firefox 140 or later
 | Start, stop, resume, and persisted recovery | Supported                                            | Supported                               | Supported                               | Recording-state and message tests                                    |
 | Click, input, select, and submit            | Supported                                            | Supported                               | Supported                               | DOM dispatch and worker persistence tests                            |
 | SPA navigation and delayed DOM updates      | Supported                                            | Supported                               | Supported                               | Delegated-listener tests with `history.pushState` and late insertion |
-| Multiple tabs or a new origin               | Supported after **Enable this tab**                  | Supported after **Enable this tab**     | Supported after **Enable this tab**     | Permission-denial and reinjection tests                              |
+| Multiple tabs, origins, or web popup windows | Supported after optional website access is granted   | Supported                               | Supported                               | Permission tests and packaged Chromium screenshot E2E                |
 | Open shadow DOM                             | Supported                                            | Supported                               | Supported                               | Composed-path and shadow-locator tests                               |
 | Same-origin iframe                          | Supported when origin access is granted              | Supported when origin access is granted | Supported when origin access is granted | All-frame manifest/build validation                                  |
-| Cross-origin iframe                         | Not captured until that origin is explicitly granted | Same                                    | Same                                    | Explicit popup limitation state                                      |
+| Cross-origin iframe                         | Supported after optional website access is granted    | Same                                    | Same                                    | All-frame manifest/build validation                                  |
+| Native select/browser/system dialogs        | Not captured                                          | Not captured                            | Not captured                            | Browser-owned UI is outside visible-tab capture                      |
 | Canvas/WebGL semantic actions               | Not captured                                         | Not captured                            | Not captured                            | Unsupported-element tests and popup limitation state                 |
 | Protected browser/extension pages           | Not captured                                         | Not captured                            | Not captured                            | URL classification tests and disabled controls                       |
 
@@ -28,6 +29,7 @@ Run from the repository root:
 corepack pnpm run install:extension-browsers
 corepack pnpm run test
 corepack pnpm --filter @capchur/extension test:browser
+corepack pnpm --filter @capchur/extension test:screenshot:chromium
 corepack pnpm run typecheck
 corepack pnpm run lint
 corepack pnpm run build:extension:browsers

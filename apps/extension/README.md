@@ -1,6 +1,6 @@
 # Capchur Browser Extension
 
-Capchur captures supported actions on HTTP(S) pages after the user grants access to the active origin. Recording state and accepted steps are persisted by the background worker.
+Capchur captures supported actions on HTTP(S) pages after the user grants optional recording access to websites. Recording state and accepted steps are persisted by the background worker.
 
 ## Supported Browsers
 
@@ -23,8 +23,8 @@ Create both store archives with `corepack pnpm run zip:extension:browsers`.
 
 - Clicks, committed text-input changes, selections, and form submissions are captured without field values.
 - SPA route changes and controls added after page load are handled by the delegated listeners.
-- Use **Enable this tab** after moving to a new tab or origin. Denying access leaves the current session intact.
+- Start or resume recording to grant optional website access. This allows interactions and screenshots to continue across tabs, origins, and separate web popup windows. Denying access leaves the current session intact.
 - Same-origin open shadow roots and permitted frames are supported.
-- Password/payment fields, canvas/WebGL surfaces, protected browser pages, closed shadow roots, and inaccessible cross-origin frames are skipped. The popup explains these limits and recording continues.
+- Native select menus, browser permission/file dialogs, password/payment fields, canvas/WebGL surfaces, protected browser pages, closed shadow roots, and inaccessible cross-origin frames are skipped. The popup explains these limits and recording continues.
 
 See [../../docs/BROWSER_COMPATIBILITY.md](../../docs/BROWSER_COMPATIBILITY.md) for the validation matrix.

@@ -65,7 +65,7 @@ async function verifyBundle(bundle, manifestVersion) {
   if (hostPermissions.length !== 1 || hostPermissions[0] !== `${productionOrigin}/*`) {
     throw new Error(`${bundle}: release host permission must be limited to ${productionOrigin}/*.`);
   }
-  if (JSON.stringify(optionalOrigins) !== JSON.stringify(["http://*/*", "https://*/*"])) {
+  if (JSON.stringify(optionalOrigins) !== JSON.stringify(["<all_urls>"])) {
     throw new Error(`${bundle}: optional page origins changed unexpectedly.`);
   }
 

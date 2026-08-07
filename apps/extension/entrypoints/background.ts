@@ -39,6 +39,9 @@ export default defineBackground(() => {
         createRecordingStorage(browser.storage.local),
         {
             attachScreenshot,
+            reportScreenshotError(error) {
+                console.warn("Capchur screenshot capture failed.", error);
+            },
             async retryScreenshot(step) {
                 const tabs = await browser.tabs.query({});
                 const sourceTab = tabs.find((tab) => tab.url === step.url && tab.id !== undefined);
