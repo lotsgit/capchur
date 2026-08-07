@@ -50,6 +50,27 @@ function pngDataUrl(width: number, height: number): string {
 }
 
 describe("screenshot capture", () => {
+    it("waits for action-driven overlays to render before capturing", async () => {
+        const events: string[] = [];
+        const attach = createScreenshotCapture({
+            captureVisibleTab: vi.fn().mockImplementation(async () => {
+                events.push("capture");
+                return pngDataUrl(1280, 720);
+            }),
+            ensureTabActive: vi.fn().mockResolvedValue(true),
+            getZoom: vi.fn().mockResolvedValue(1),
+            saveImage: vi.fn().mockResolvedValue(undefined),
+            delay: vi.fn().mockImplementation(async (milliseconds) => {
+                events.push(`delay:${milliseconds}`);
+            }),
+            now: () => 1_000,
+        });
+
+        await attach(step, { tabId: 4, windowId: 2 });
+
+        expect(events).toEqual(["delay:100", "capture"]);
+    });
+
     it.each([
         [1, 1280, { x: 100, y: 100, width: 120, height: 45 }],
         [1.25, 1024, { x: 125, y: 100, width: 150, height: 45 }],
@@ -118,7 +139,7 @@ describe("screenshot capture", () => {
             windowId: 2,
         });
 
-        expect(delay).toHaveBeenCalledWith(500);
+        expect(delay.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([100, 100, 400]);
         expect(saveImage).toHaveBeenCalledTimes(2);
         expect(first).toMatchObject({
             screenshot: { width: 1280, height: 720 },

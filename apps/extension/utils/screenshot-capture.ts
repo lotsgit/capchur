@@ -7,6 +7,7 @@ import type {
 } from "@capchur/contracts";
 
 const DEFAULT_MINIMUM_CAPTURE_INTERVAL_MS = 500;
+const DEFAULT_RENDER_SETTLE_DELAY_MS = 100;
 
 export interface ScreenshotAttachment {
     screenshot: ScreenshotMetadata;
@@ -27,6 +28,7 @@ interface ScreenshotCaptureDependencies {
     now?: () => number;
     delay?: (milliseconds: number) => Promise<void>;
     minimumIntervalMs?: number;
+    renderSettleDelayMs?: number;
 }
 
 export type AttachScreenshot = (
@@ -42,9 +44,13 @@ export function createScreenshotCapture(
         new Promise((resolve) => setTimeout(resolve, milliseconds)));
     const minimumInterval = dependencies.minimumIntervalMs
         ?? DEFAULT_MINIMUM_CAPTURE_INTERVAL_MS;
+    const renderSettleDelay = dependencies.renderSettleDelayMs
+        ?? DEFAULT_RENDER_SETTLE_DELAY_MS;
     let lastCaptureStartedAt = Number.NEGATIVE_INFINITY;
 
     return async (step, source) => {
+        await delay(renderSettleDelay);
+
         const elapsed = now() - lastCaptureStartedAt;
         if (elapsed < minimumInterval) {
             await delay(minimumInterval - elapsed);
