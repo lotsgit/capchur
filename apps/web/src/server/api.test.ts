@@ -151,6 +151,29 @@ describe("persistence API", () => {
     if (dataDirectory) await rm(dataDirectory, { recursive: true, force: true });
   }, 60_000);
 
+  it("keeps authorization exchange responses compatible with legacy extensions", async () => {
+    const legacyAuthorization = await extensionApi.authorize(
+      request("/api/extension/authorize", "POST", ownerToken),
+    );
+    const legacyCode = (await legacyAuthorization.json() as { code: string }).code;
+    const legacyExchange = await extensionApi.exchange(
+      request("/api/extension/exchange", "POST", undefined, { code: legacyCode }),
+    );
+    expect(Object.keys(await legacyExchange.json()).sort()).toEqual(["accessToken", "expiresAt"]);
+
+    const namedAuthorization = await extensionApi.authorize(
+      request("/api/extension/authorize", "POST", ownerToken),
+    );
+    const namedCode = (await namedAuthorization.json() as { code: string }).code;
+    const namedExchange = await extensionApi.exchange(
+      request("/api/extension/exchange", "POST", undefined, {
+        code: namedCode,
+        includeUserName: true,
+      }),
+    );
+    expect(await namedExchange.json()).toMatchObject({ userName: "Owner" });
+  });
+
   it("requires authentication and isolates guides and sessions by workspace", async () => {
     expect((await api.guides(request("/api/guides", "POST", undefined, guideWrite))).status)
       .toBe(401);

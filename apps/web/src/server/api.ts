@@ -234,9 +234,11 @@ export class ExtensionApi {
     const parsed = ExtensionAuthorizationExchangeSchema.safeParse(await parseJson(request));
     if (!parsed.success) return jsonError(400, "INVALID_REQUEST", "Authorization code is invalid");
     const credential = await this.authorization.exchangeCode(parsed.data.code);
-    return credential
-      ? Response.json(credential)
-      : jsonError(401, "INVALID_GRANT", "Authorization code is invalid or expired");
+    if (!credential) return jsonError(401, "INVALID_GRANT", "Authorization code is invalid or expired");
+    const response = parsed.data.includeUserName
+      ? credential
+      : { accessToken: credential.accessToken, expiresAt: credential.expiresAt };
+    return Response.json(response);
   }
 
   async syncSession(request: Request, sessionId: string): Promise<Response> {

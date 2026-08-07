@@ -316,6 +316,7 @@ export const RecordingSessionWriteSchema = z.strictObject({
 
 export const ExtensionAuthorizationExchangeSchema = z.strictObject({
     code: z.string().trim().min(32).max(512),
+    includeUserName: z.boolean().optional().default(false),
 });
 
 export const ExtensionAuthorizationSchema = z.strictObject({

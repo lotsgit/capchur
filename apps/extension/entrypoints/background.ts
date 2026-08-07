@@ -82,7 +82,7 @@ export default defineBackground(() => {
             const response = await fetch(new URL("/api/extension/exchange", WEB_ORIGIN), {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ code }),
+                body: JSON.stringify({ code, includeUserName: true }),
             });
             if (!response.ok) throw new Error("Extension authorization expired. Try again.");
             return ExtensionAuthorizationSchema.parse(await response.json());
