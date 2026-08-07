@@ -13,7 +13,8 @@ import { createScreenshotCapture } from "../utils/screenshot-capture";
 import { createScreenshotStorage } from "../utils/screenshot-storage";
 import { createSyncQueue, SyncTransportError } from "../utils/sync-queue";
 
-const WEB_ORIGIN = import.meta.env.WXT_WEB_ORIGIN ?? "http://localhost:3000";
+const WEB_ORIGIN = import.meta.env.WXT_WEB_ORIGIN
+    ?? (import.meta.env.DEV ? "http://localhost:3000" : "https://capchur.io");
 const SYNC_RETRY_ALARM = "capchur-sync-retry";
 
 async function sha256Hex(bytes: ArrayBuffer): Promise<string> {

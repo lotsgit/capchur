@@ -77,6 +77,9 @@ async function verifyBundle(bundle, manifestVersion) {
   const scripts = (await filesBelow(directory)).filter((path) => path.endsWith(".js"));
   for (const script of scripts) {
     const source = await readFile(script, "utf8");
+    if (source.includes("http://localhost") || source.includes("http://127.0.0.1")) {
+      throw new Error(`${bundle}: development origin found in ${script}.`);
+    }
     const withoutReviewedZodProbe = source.replace("Function(``)", "");
     if (/\b(?:eval|Function)\s*\(/.test(withoutReviewedZodProbe)) {
       throw new Error(`${bundle}: unreviewed dynamic execution found in ${script}.`);
