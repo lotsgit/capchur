@@ -12,9 +12,19 @@ type SendMessage = (message: RecordingRequestMessage) => Promise<unknown>;
 
 const recentEvents = new WeakSet<Event>();
 const installationKey = "__capchurClickCaptureInstalledV1";
+const DROPDOWN_OPTION_SELECTOR = [
+    '[role="option"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="treeitem"]',
+].join(",");
+const DROPDOWN_DWELL_MS = 200;
 
 interface CaptureInstallationState {
     sendMessage: SendMessage;
+    dropdownPreviewTarget?: Element | null;
+    dropdownPreviewTimer?: number;
 }
 
 export function installClickCapture(targetWindow: Window, sendMessage: SendMessage): void {
@@ -27,19 +37,34 @@ export function installClickCapture(targetWindow: Window, sendMessage: SendMessa
 
     const state: CaptureInstallationState = { sendMessage };
     installationState[installationKey] = state;
-    const capture = (event: Event, action: SupportedCaptureAction): void => {
+    const capture = (
+        event: Event,
+        action: SupportedCaptureAction,
+        onSettled?: () => void,
+    ): void => {
         if (recentEvents.has(event)) {
+            onSettled?.();
             return;
         }
         recentEvents.add(event);
 
         const message = createActionCaptureMessage(event, targetWindow, action);
         if (message) {
-            void state.sendMessage(message).catch(() => undefined);
+            void state.sendMessage(message).catch(() => undefined).finally(onSettled);
+        } else {
+            onSettled?.();
         }
     };
 
-    targetWindow.addEventListener("click", (event) => capture(event, "click"), { capture: true });
+    targetWindow.addEventListener("click", (event) => {
+        clearDropdownPreviewTimer(targetWindow, state);
+        state.dropdownPreviewTarget = null;
+        const option = getEventElement(event)?.closest(DROPDOWN_OPTION_SELECTOR);
+        const releaseDropdown = option
+            ? retainDropdownVisual(option, targetWindow)
+            : undefined;
+        capture(event, "click", releaseDropdown);
+    }, { capture: true });
     targetWindow.addEventListener("pointerdown", (event) => {
         const target = getEventElement(event);
         if (!target?.closest("select")) {
@@ -51,6 +76,32 @@ export function installClickCapture(targetWindow: Window, sendMessage: SendMessa
             void state.sendMessage(message).catch(() => undefined);
         }
     }, { capture: true });
+    const scheduleDropdownPreview = (event: Event): void => {
+        const option = getEventElement(event)?.closest(DROPDOWN_OPTION_SELECTOR) ?? null;
+        if (option === state.dropdownPreviewTarget) {
+            return;
+        }
+
+        clearDropdownPreviewTimer(targetWindow, state);
+        state.dropdownPreviewTarget = option;
+        if (!option) {
+            return;
+        }
+
+        state.dropdownPreviewTimer = targetWindow.setTimeout(() => {
+            state.dropdownPreviewTimer = undefined;
+            if (!option.isConnected || state.dropdownPreviewTarget !== option) {
+                return;
+            }
+
+            const message = createDropdownClickPreviewMessage(option, targetWindow);
+            if (message) {
+                void state.sendMessage(message).catch(() => undefined);
+            }
+        }, DROPDOWN_DWELL_MS);
+    };
+    targetWindow.addEventListener("pointerover", scheduleDropdownPreview, { capture: true });
+    targetWindow.addEventListener("pointermove", scheduleDropdownPreview, { capture: true });
     targetWindow.addEventListener("change", (event) => {
         const target = getEventElement(event);
         if (target?.matches("select")) {
@@ -75,6 +126,14 @@ export function createActionCaptureMessage(
     action: SupportedCaptureAction,
 ): RecordingRequestMessage | null {
     const element = getEventElement(event);
+    return element ? createActionCaptureMessageForElement(element, targetWindow, action) : null;
+}
+
+function createActionCaptureMessageForElement(
+    element: Element,
+    targetWindow: Window,
+    action: SupportedCaptureAction,
+): RecordingRequestMessage | null {
     if (!element || element.closest("[data-capchur-ui]") || !isVisible(element, targetWindow)) {
         return null;
     }
@@ -166,4 +225,89 @@ export function createSelectPreviewMessage(
     }
 
     return { ...message, type: "capture.select.preview" };
+}
+
+export function createDropdownClickPreviewMessage(
+    element: Element,
+    targetWindow: Window,
+): RecordingRequestMessage | null {
+    if (!element.matches(DROPDOWN_OPTION_SELECTOR)) {
+        return null;
+    }
+
+    const message = createActionCaptureMessageForElement(element, targetWindow, "click");
+    if (!message || message.type !== "capture.click") {
+        return null;
+    }
+
+    return { ...message, type: "capture.click.preview" };
+}
+
+function clearDropdownPreviewTimer(
+    targetWindow: Window,
+    state: CaptureInstallationState,
+): void {
+    if (state.dropdownPreviewTimer !== undefined) {
+        targetWindow.clearTimeout(state.dropdownPreviewTimer);
+        state.dropdownPreviewTimer = undefined;
+    }
+}
+
+function retainDropdownVisual(option: Element, targetWindow: Window): () => void {
+    const dropdown = option.closest('[role="listbox"], [role="menu"], [role="tree"]')
+        ?? option.parentElement;
+    if (!dropdown || dropdown.closest("[data-capchur-ui]")) {
+        return () => undefined;
+    }
+
+    const rect = dropdown.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+        return () => undefined;
+    }
+
+    const clone = dropdown.cloneNode(true) as HTMLElement;
+    copyComputedStyles(dropdown, clone, targetWindow);
+    clone.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+    clone.removeAttribute("id");
+    clone.dataset.capchurUi = "retained-dropdown";
+    clone.setAttribute("aria-hidden", "true");
+    Object.assign(clone.style, {
+        display: "block",
+        position: "fixed",
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        margin: "0",
+        pointerEvents: "none",
+        transform: "none",
+        visibility: "visible",
+        zIndex: "2147483647",
+    });
+    targetWindow.document.documentElement.append(clone);
+    return () => clone.remove();
+}
+
+function copyComputedStyles(
+    source: Element,
+    clone: HTMLElement,
+    targetWindow: Window,
+): void {
+    const sourceElements = [source, ...Array.from(source.querySelectorAll("*"))];
+    const cloneElements = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>("*"))];
+    sourceElements.forEach((sourceElement, index) => {
+        const cloneElement = cloneElements[index];
+        if (!cloneElement) {
+            return;
+        }
+
+        const computedStyle = targetWindow.getComputedStyle(sourceElement);
+        for (const property of Array.from(computedStyle)) {
+            cloneElement.style.setProperty(
+                property,
+                computedStyle.getPropertyValue(property),
+                computedStyle.getPropertyPriority(property),
+            );
+        }
+    });
 }

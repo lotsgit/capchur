@@ -262,6 +262,7 @@ describe("extension message contracts", () => {
     it("accepts privacy-safe input, select preview, select, and submit captures", () => {
         for (const type of [
             "capture.input",
+            "capture.click.preview",
             "capture.select.preview",
             "capture.select",
             "capture.submit",

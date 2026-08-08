@@ -367,13 +367,86 @@ describe("recording service-worker messages", () => {
         }, source);
 
         expect(preview).toMatchObject({ ok: true, session: { steps: [] } });
-        expect(prepareScreenshot).toHaveBeenCalledWith({ tabId: 4, windowId: 2 });
+        expect(prepareScreenshot).toHaveBeenCalledWith(
+            { tabId: 4, windowId: 2 },
+            undefined,
+        );
         expect(attachScreenshot).toHaveBeenCalledWith(
             expect.objectContaining({ action: "select" }),
             { tabId: 4, windowId: 2 },
             candidate,
         );
         expect(selected).toMatchObject({
+            ok: true,
+            session: { steps: [{ screenshot: { capturedAt: 250 } }] },
+        });
+    });
+
+    it("uses a matching ARIA-option dwell screenshot for the committed click", async () => {
+        const storageArea = new FakeStorageArea();
+        const screenshotStepId = "0198f1d0-c184-7000-8000-000000000010";
+        const optionCapture = {
+            ...clickCapture,
+            description: "Click the Northwind Traders option",
+            element: {
+                tagName: "div",
+                accessibleName: "Northwind Traders",
+                role: "option",
+                selectors: ["#account-option"],
+            },
+        };
+        const candidate = {
+            dataUrl: "data:image/png;base64,preview",
+            dimensions: { width: 1600, height: 900 },
+            capturedAt: 250,
+            zoom: 1,
+        };
+        const prepareScreenshot = vi.fn().mockResolvedValue(candidate);
+        const attachScreenshot = vi.fn().mockResolvedValue({
+            screenshot: {
+                id: screenshotStepId,
+                mimeType: "image/png" as const,
+                width: 1600,
+                height: 900,
+                capturedAt: 250,
+                storageKey: `screenshots/${sessionId}/${screenshotStepId}`,
+            },
+            highlight: optionCapture.highlight,
+            viewport: optionCapture.viewport,
+        });
+        const ids = [sessionId, screenshotStepId];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            {
+                now: () => 300,
+                createId: () => ids.shift() ?? screenshotStepId,
+                prepareScreenshot,
+                attachScreenshot,
+            },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+        const source = { url: clickCapture.url, tabId: 4, windowId: 2 };
+
+        await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click.preview",
+            requestId,
+            capture: optionCapture,
+        }, source);
+        const clicked = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.click",
+            requestId,
+            capture: optionCapture,
+        }, source);
+
+        expect(prepareScreenshot).toHaveBeenCalledWith({ tabId: 4, windowId: 2 }, 0);
+        expect(attachScreenshot).toHaveBeenCalledWith(
+            expect.objectContaining({ action: "click" }),
+            { tabId: 4, windowId: 2 },
+            candidate,
+        );
+        expect(clicked).toMatchObject({
             ok: true,
             session: { steps: [{ screenshot: { capturedAt: 250 } }] },
         });

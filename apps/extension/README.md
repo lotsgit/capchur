@@ -26,6 +26,7 @@ Create both store archives with `corepack pnpm run zip:extension:browsers`.
 - Start or resume recording to grant optional website access. This allows interactions and screenshots to continue across tabs, origins, and separate web popup windows. Denying access leaves the current session intact.
 - Same-origin open shadow roots and permitted frames are supported.
 - Opening a native select starts a short-lived screenshot candidate while its menu is visible. The image is retained only when a selection is committed and otherwise expires without being stored.
+- Dwelling briefly over an open ARIA option or menu item prepares the same short-lived candidate. On click, an inert visual copy of the open menu remains until capture completes, allowing application-rendered dropdowns such as Dynamics 365 lookups to survive delayed browser screenshot processing.
 - Browser permission/file dialogs, password/payment fields, canvas/WebGL surfaces, protected browser pages, closed shadow roots, and inaccessible cross-origin frames are skipped. The popup explains these limits and recording continues.
 
 See [../../docs/BROWSER_COMPATIBILITY.md](../../docs/BROWSER_COMPATIBILITY.md) for the validation matrix.

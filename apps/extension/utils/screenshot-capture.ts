@@ -47,7 +47,7 @@ export type AttachScreenshot = (
 export interface ScreenshotCapture {
     (step: CapturedStep, source: ScreenshotSource, prepared?: PreparedScreenshot):
         Promise<ScreenshotAttachment>;
-    prepare(source: ScreenshotSource): Promise<PreparedScreenshot>;
+    prepare(source: ScreenshotSource, settleDelayMs?: number): Promise<PreparedScreenshot>;
 }
 
 export function createScreenshotCapture(
@@ -61,9 +61,13 @@ export function createScreenshotCapture(
     const renderSettleDelay = dependencies.renderSettleDelayMs
         ?? DEFAULT_RENDER_SETTLE_DELAY_MS;
     let lastCaptureStartedAt = Number.NEGATIVE_INFINITY;
+    let captureQueue = Promise.resolve();
 
-    const prepare = async (source: ScreenshotSource): Promise<PreparedScreenshot> => {
-        await delay(renderSettleDelay);
+    const prepareNext = async (
+        source: ScreenshotSource,
+        settleDelayMs = renderSettleDelay,
+    ): Promise<PreparedScreenshot> => {
+        await delay(settleDelayMs);
 
         const elapsed = now() - lastCaptureStartedAt;
         if (elapsed < minimumInterval) {
@@ -87,6 +91,18 @@ export function createScreenshotCapture(
         }
 
         return { dataUrl, dimensions, capturedAt, zoom };
+    };
+
+    const prepare = (
+        source: ScreenshotSource,
+        settleDelayMs = renderSettleDelay,
+    ): Promise<PreparedScreenshot> => {
+        const result = captureQueue.then(() => prepareNext(source, settleDelayMs));
+        captureQueue = result.then(
+            () => undefined,
+            () => undefined,
+        );
+        return result;
     };
 
     const attach = async (

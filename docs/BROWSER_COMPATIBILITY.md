@@ -14,13 +14,14 @@ S17 supports Capchur recording in current Chrome, Edge, and Firefox 140 or later
 | Same-origin iframe                          | Supported when origin access is granted              | Supported when origin access is granted | Supported when origin access is granted | All-frame manifest/build validation                                  |
 | Cross-origin iframe                         | Supported after optional website access is granted    | Same                                    | Same                                    | All-frame manifest/build validation                                  |
 | Native select menu                          | Pre-selection screenshot retained on committed change | Same                                    | Same                                    | Content/worker tests and packaged Chromium screenshot E2E            |
+| ARIA listbox/menu dropdown                  | Dwell candidate plus visual retention on matching click | Same                                    | Same                                    | Dynamics-style DOM tests and packaged Chromium pixel assertion       |
 | Browser permission/file/system dialogs      | Not captured                                          | Not captured                            | Not captured                            | Browser-owned UI is outside visible-tab capture                      |
 | Canvas/WebGL semantic actions               | Not captured                                         | Not captured                            | Not captured                            | Unsupported-element tests and popup limitation state                 |
 | Protected browser/extension pages           | Not captured                                         | Not captured                            | Not captured                            | URL classification tests and disabled controls                       |
 
 ## Privacy And Recovery
 
-Input and selected values are never read or included in capture messages. Opening a native select prepares one in-memory screenshot for at most 10 seconds; it is written to IndexedDB only if that select commits a change. Password and payment-related fields are rejected before metadata is produced. A denied permission request or unsupported action does not stop, clear, or replace the persisted recording session.
+Input and selected values are never read or included in capture messages. Opening a native select or dwelling over an ARIA option/menu item prepares one in-memory screenshot for at most 10 seconds; it is written to IndexedDB only if the matching action commits. Password and payment-related fields are rejected before metadata is produced. A denied permission request or unsupported action does not stop, clear, or replace the persisted recording session.
 
 ## Validation
 

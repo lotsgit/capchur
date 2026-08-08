@@ -196,4 +196,39 @@ describe("screenshot capture", () => {
             viewport: { zoom: 1.25 },
         });
     });
+
+    it("serializes concurrent capture requests before applying the quota interval", async () => {
+        let currentTime = 1_000;
+        let releaseFirstCapture!: () => void;
+        const firstCapturePending = new Promise<void>((resolve) => {
+            releaseFirstCapture = resolve;
+        });
+        const captureVisibleTab = vi.fn()
+            .mockImplementationOnce(async () => {
+                await firstCapturePending;
+                return pngDataUrl(1280, 720);
+            })
+            .mockResolvedValue(pngDataUrl(1280, 720));
+        const delay = vi.fn(async (milliseconds: number) => {
+            currentTime += milliseconds;
+        });
+        const attach = createScreenshotCapture({
+            captureVisibleTab,
+            ensureTabActive: vi.fn().mockResolvedValue(true),
+            getZoom: vi.fn().mockResolvedValue(1),
+            saveImage: vi.fn().mockResolvedValue(undefined),
+            now: () => currentTime,
+            delay,
+        });
+
+        const first = attach.prepare({ tabId: 4, windowId: 2 }, 0);
+        const second = attach.prepare({ tabId: 4, windowId: 2 }, 0);
+        await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledTimes(1));
+
+        releaseFirstCapture();
+        await Promise.all([first, second]);
+
+        expect(captureVisibleTab).toHaveBeenCalledTimes(2);
+        expect(delay).toHaveBeenCalledWith(600);
+    });
 });

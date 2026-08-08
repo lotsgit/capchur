@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     createActionCaptureMessage,
     createClickCaptureMessage,
+    createDropdownClickPreviewMessage,
     createSelectPreviewMessage,
     installClickCapture,
 } from "./click-capture";
@@ -145,6 +146,45 @@ describe("content click capture", () => {
         vi.spyOn(event, "composedPath").mockReturnValue([button, document, window]);
 
         expect(createSelectPreviewMessage(event, window)).toBeNull();
+    });
+
+    it("previews a Dynamics-style ARIA option after pointer dwell before its click", async () => {
+        vi.useFakeTimers();
+        const option = document.createElement("div");
+        option.id = "account-option";
+        option.role = "option";
+        option.textContent = "Northwind Traders";
+        document.body.append(option);
+        vi.spyOn(option, "getBoundingClientRect").mockReturnValue(visibleRect);
+        const sendMessage = vi.fn().mockResolvedValue(undefined);
+        installClickCapture(window, sendMessage);
+
+        option.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, composed: true }));
+        await vi.advanceTimersByTimeAsync(200);
+        option.click();
+        await Promise.resolve();
+
+        expect(sendMessage.mock.calls.map(([message]) => message.type)).toEqual([
+            "capture.click.preview",
+            "capture.click",
+        ]);
+        expect(sendMessage.mock.calls[0]?.[0]).toMatchObject({
+            capture: {
+                element: { role: "option" },
+                highlight: { rect: { x: 20, y: 30, width: 120, height: 40 } },
+            },
+        });
+        expect(sendMessage.mock.calls[0]?.[0].capture.element.selectors)
+            .toContain("#account-option");
+        vi.useRealTimers();
+    });
+
+    it("does not preview ordinary page elements as dropdown options", () => {
+        const button = document.createElement("button");
+        button.textContent = "Save";
+        vi.spyOn(button, "getBoundingClientRect").mockReturnValue(visibleRect);
+
+        expect(createDropdownClickPreviewMessage(button, window)).toBeNull();
     });
 
     it("uses the current SPA URL and captures controls added after installation", async () => {

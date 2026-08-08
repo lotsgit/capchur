@@ -25,7 +25,11 @@ const server = createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(request.url === "/popup"
         ? "<!doctype html><html><head><title>Popup fixture</title></head><body><button id=popup-action>Popup action</button></body></html>"
-        : "<!doctype html><html><head><title>Main fixture</title></head><body><button id=main-action>Main action</button><label for=native-select>Release channel</label><select id=native-select><option value=stable>Stable</option><option value=preview>Preview</option></select><button id=open-popup onclick=\"window.open('/popup','fixture','popup,width=500,height=400')\">Open popup</button></body></html>");
+        : `<!doctype html><html><head><title>Main fixture</title><style>
+            #account-list { position: fixed; left: 400px; top: 80px; width: 200px; background: rgb(255, 0, 0); color: white; }
+            #account-list[hidden] { display: none; }
+            #account-list [role=option] { height: 40px; padding: 8px; box-sizing: border-box; }
+        </style></head><body><button id=main-action>Main action</button><label for=native-select>Release channel</label><select id=native-select><option value=stable>Stable</option><option value=preview>Preview</option></select><button id=open-accounts aria-haspopup=listbox aria-expanded=false onclick="this.setAttribute('aria-expanded','true');document.querySelector('#account-list').hidden=false">Choose account</button><div id=account-list role=listbox aria-label="Accounts" hidden><div id=northwind-option role=option onclick="document.querySelector('#account-list').hidden=true">Northwind Traders</div><div role=option>Contoso</div></div><button id=open-popup onclick="window.open('/popup','fixture','popup,width=500,height=400')">Open popup</button></body></html>`);
 });
 
 await new Promise((resolveServer) => server.listen(4173, "127.0.0.1", resolveServer));
@@ -66,6 +70,12 @@ try {
     await mainPage.waitForTimeout(800);
     await nativeSelect.selectOption("preview");
 
+    await mainPage.getByRole("button", { name: "Choose account" }).click();
+    const accountOption = mainPage.getByRole("option", { name: "Northwind Traders" });
+    await accountOption.hover();
+    await mainPage.waitForTimeout(800);
+    await accountOption.click();
+
     const popupPromise = context.waitForEvent("page");
     await mainPage.getByRole("button", { name: "Open popup" }).click();
     const popupPage = await popupPromise;
@@ -82,18 +92,49 @@ try {
             step.description.includes("Popup action"),
         );
         const selectStep = session?.steps?.find((step) => step.action === "select");
-        if (popupStep?.screenshot?.storageKey && selectStep?.screenshot?.storageKey) break;
+        const optionStep = session?.steps?.find((step) => step.element.role === "option");
+        if (
+            popupStep?.screenshot?.storageKey
+            && selectStep?.screenshot?.storageKey
+            && optionStep?.screenshot?.storageKey
+        ) break;
         await new Promise((resolveWait) => setTimeout(resolveWait, 100));
     } while (Date.now() < deadline);
 
     const mainStep = session.steps.find((step) => step.description.includes("Main action"));
     const selectStep = session.steps.find((step) => step.action === "select");
+    const optionStep = session.steps.find((step) => step.element.role === "option");
     const popupStep = session.steps.find((step) => step.description.includes("Popup action"));
+    const optionPixel = optionStep?.screenshot?.storageKey
+        ? await worker.evaluate(async (storageKey) => {
+            const database = await new Promise((resolveDatabase, reject) => {
+                const request = indexedDB.open("capchur-capture", 1);
+                request.onsuccess = () => resolveDatabase(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            const blob = await new Promise((resolveBlob, reject) => {
+                const request = database.transaction("screenshots", "readonly")
+                    .objectStore("screenshots").get(storageKey);
+                request.onsuccess = () => resolveBlob(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            const bitmap = await createImageBitmap(blob);
+            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+            const context = canvas.getContext("2d");
+            context.drawImage(bitmap, 0, 0);
+            return Array.from(context.getImageData(405, 85, 1, 1).data);
+        }, optionStep.screenshot.storageKey)
+        : null;
     if (
         !mainStep?.screenshot?.storageKey
         || !selectStep?.screenshot?.storageKey
-        || selectStep.screenshot.capturedAt > selectStep.timestamp
+        || !optionStep?.screenshot?.storageKey
+        || !optionPixel
+        || optionPixel[0] < 200
+        || optionPixel[1] > 50
+        || optionPixel[2] > 50
         || !popupStep?.screenshot?.storageKey
+        || workerErrors.length > 0
     ) {
         const popupProbe = await worker.evaluate(async () => {
             const tab = (await chrome.tabs.query({ url: "http://127.0.0.1:4173/popup" }))[0];
@@ -110,7 +151,7 @@ try {
         });
         throw new Error(`Packaged screenshot capture failed: ${JSON.stringify({ session, popupProbe, workerErrors })}`);
     }
-    console.log("chromium: main, native select, and popup window screenshots passed");
+    console.log("chromium: main, native select, ARIA dropdown, and popup screenshots passed");
 } finally {
     await context?.close();
     await new Promise((resolveServer, reject) => server.close((error) =>

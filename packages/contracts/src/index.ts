@@ -475,6 +475,11 @@ export const RecordingRequestMessageSchema = z.discriminatedUnion("type", [
     }),
     z.strictObject({
         ...MessageBaseShape,
+        type: z.literal("capture.click.preview"),
+        capture: ActionCaptureSchema,
+    }),
+    z.strictObject({
+        ...MessageBaseShape,
         type: z.literal("capture.input"),
         capture: ActionCaptureSchema,
     }),

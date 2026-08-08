@@ -21,13 +21,16 @@ import type {
     ScreenshotSource,
 } from "./screenshot-capture";
 
-const SELECT_PREVIEW_TTL_MS = 10_000;
+const SCREENSHOT_PREVIEW_TTL_MS = 10_000;
 
 interface RecordingMessageHandlerOptions {
     now?: () => number;
     createId?: () => string;
     attachScreenshot?: AttachScreenshot;
-    prepareScreenshot?: (source: ScreenshotSource) => Promise<PreparedScreenshot>;
+    prepareScreenshot?: (
+        source: ScreenshotSource,
+        settleDelayMs?: number,
+    ) => Promise<PreparedScreenshot>;
     retryScreenshot?: (step: CapturedStep) => Promise<ScreenshotAttachment>;
     reportScreenshotError?: (error: unknown) => void;
     deleteScreenshot?: (storageKey: string) => Promise<void>;
@@ -49,8 +52,10 @@ export function createRecordingMessageHandler(
 ) => Promise<RecordingResponseMessage> {
     const now = options.now ?? Date.now;
     const createId = options.createId ?? (() => crypto.randomUUID());
-    const pendingSelectScreenshots = new Map<number, Promise<{
+    const pendingScreenshots = new Map<number, Promise<{
+        action: "click" | "select";
         candidate: PreparedScreenshot;
+        capture: ActionCapture;
         expiresAt: number;
         url: string;
         windowId: number;
@@ -59,14 +64,20 @@ export function createRecordingMessageHandler(
 
     return (message, source) => {
         const parsedMessage = RecordingRequestMessageSchema.safeParse(message);
-        if (parsedMessage.success && parsedMessage.data.type === "capture.select.preview") {
-            return handleSelectPreview(
+        if (
+            parsedMessage.success
+            && (
+                parsedMessage.data.type === "capture.click.preview"
+                || parsedMessage.data.type === "capture.select.preview"
+            )
+        ) {
+            return handleScreenshotPreview(
                 storage,
                 parsedMessage.data,
                 source,
                 now,
                 options,
-                pendingSelectScreenshots,
+                pendingScreenshots,
             );
         }
 
@@ -78,7 +89,7 @@ export function createRecordingMessageHandler(
                 now,
                 createId,
                 options,
-                pendingSelectScreenshots,
+                pendingScreenshots,
             ),
         );
         pending = response.then(
@@ -96,8 +107,10 @@ async function handleRecordingMessage(
     now: () => number,
     createId: () => string,
     options: RecordingMessageHandlerOptions,
-    pendingSelectScreenshots: Map<number, Promise<{
+    pendingScreenshots: Map<number, Promise<{
+        action: "click" | "select";
         candidate: PreparedScreenshot;
+        capture: ActionCapture;
         expiresAt: number;
         url: string;
         windowId: number;
@@ -154,18 +167,22 @@ async function handleRecordingMessage(
             }
 
             try {
-                const pendingSelectPromise = message.type === "capture.select"
-                    ? pendingSelectScreenshots.get(screenshotSource.tabId)
+                const action = message.type.slice("capture.".length) as CaptureActionType;
+                const pendingScreenshotPromise = message.type === "capture.click"
+                    || message.type === "capture.select"
+                    ? pendingScreenshots.get(screenshotSource.tabId)
                     : undefined;
-                if (message.type === "capture.select") {
-                    pendingSelectScreenshots.delete(screenshotSource.tabId);
+                if (pendingScreenshotPromise) {
+                    pendingScreenshots.delete(screenshotSource.tabId);
                 }
-                const pendingSelect = await pendingSelectPromise;
-                const prepared = pendingSelect
-                    && pendingSelect.expiresAt >= now()
-                    && pendingSelect.url === message.capture.url
-                    && pendingSelect.windowId === screenshotSource.windowId
-                    ? pendingSelect.candidate
+                const pendingScreenshot = await pendingScreenshotPromise;
+                const prepared = pendingScreenshot
+                    && pendingScreenshot.action === action
+                    && pendingScreenshot.expiresAt >= now()
+                    && pendingScreenshot.url === message.capture.url
+                    && pendingScreenshot.windowId === screenshotSource.windowId
+                    && isMatchingPreviewTarget(pendingScreenshot.capture, message.capture)
+                    ? pendingScreenshot.candidate
                     : undefined;
                 const attachment = await options.attachScreenshot(
                     step,
@@ -291,7 +308,7 @@ async function handleRecordingMessage(
             createId,
         );
         if (message.type === "recording.stop" || message.type === "recording.clear") {
-            pendingSelectScreenshots.clear();
+            pendingScreenshots.clear();
         }
         if (transition.action === "clear") {
             await options.clearScreenshots?.();
@@ -333,6 +350,7 @@ function toStateCommand(message: RecordingRequestMessage): RecordingStateCommand
         case "recording.screenshot.retry":
             throw new Error("Review messages do not transition recording state.");
         case "capture.click":
+        case "capture.click.preview":
         case "capture.input":
         case "capture.select":
         case "capture.select.preview":
@@ -415,14 +433,18 @@ function toScreenshotSource(source: RecordingMessageSource): ScreenshotSource | 
         : { tabId: source.tabId, windowId: source.windowId };
 }
 
-async function handleSelectPreview(
+async function handleScreenshotPreview(
     storage: RecordingStorage,
-    message: Extract<RecordingRequestMessage, { type: "capture.select.preview" }>,
+    message: Extract<RecordingRequestMessage, {
+        type: "capture.click.preview" | "capture.select.preview";
+    }>,
     source: string | RecordingMessageSource | undefined,
     now: () => number,
     options: RecordingMessageHandlerOptions,
-    pendingSelectScreenshots: Map<number, Promise<{
+    pendingScreenshots: Map<number, Promise<{
+        action: "click" | "select";
         candidate: PreparedScreenshot;
+        capture: ActionCapture;
         expiresAt: number;
         url: string;
         windowId: number;
@@ -447,10 +469,16 @@ async function handleSelectPreview(
         return successResponse(message.requestId, currentSession);
     }
 
-    const candidatePromise = options.prepareScreenshot(screenshotSource).then(
+    const action: "click" | "select" = message.type === "capture.click.preview"
+        ? "click"
+        : "select";
+    const settleDelayMs = action === "click" ? 0 : undefined;
+    const candidatePromise = options.prepareScreenshot(screenshotSource, settleDelayMs).then(
         (candidate) => ({
+            action,
             candidate,
-            expiresAt: now() + SELECT_PREVIEW_TTL_MS,
+            capture: message.capture,
+            expiresAt: now() + SCREENSHOT_PREVIEW_TTL_MS,
             url: message.capture.url,
             windowId: screenshotSource.windowId,
         }),
@@ -459,7 +487,21 @@ async function handleSelectPreview(
             return null;
         },
     );
-    pendingSelectScreenshots.set(screenshotSource.tabId, candidatePromise);
+    pendingScreenshots.set(screenshotSource.tabId, candidatePromise);
     await candidatePromise;
     return successResponse(message.requestId, await storage.load());
+}
+
+function isMatchingPreviewTarget(preview: ActionCapture, action: ActionCapture): boolean {
+    if (preview.element.tagName !== action.element.tagName) {
+        return false;
+    }
+
+    const actionSelectors = new Set(action.element.selectors);
+    return preview.element.selectors.some((selector) => actionSelectors.has(selector))
+        || (
+            preview.element.accessibleName !== undefined
+            && preview.element.accessibleName === action.element.accessibleName
+            && preview.element.role === action.element.role
+        );
 }

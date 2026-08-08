@@ -39,7 +39,8 @@ export default defineBackground(() => {
         createRecordingStorage(browser.storage.local),
         {
             attachScreenshot,
-            prepareScreenshot: (source) => attachScreenshot.prepare(source),
+            prepareScreenshot: (source, settleDelayMs) =>
+                attachScreenshot.prepare(source, settleDelayMs),
             reportScreenshotError(error) {
                 console.warn("Capchur screenshot capture failed.", error);
             },
