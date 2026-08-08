@@ -318,6 +318,67 @@ describe("recording service-worker messages", () => {
         );
     });
 
+    it("uses a prepared native-select screenshot once the selection is committed", async () => {
+        const storageArea = new FakeStorageArea();
+        const screenshotStepId = "0198f1d0-c184-7000-8000-000000000010";
+        const candidate = {
+            dataUrl: "data:image/png;base64,preview",
+            dimensions: { width: 1600, height: 900 },
+            capturedAt: 250,
+            zoom: 1,
+        };
+        const prepareScreenshot = vi.fn().mockResolvedValue(candidate);
+        const attachScreenshot = vi.fn().mockResolvedValue({
+            screenshot: {
+                id: screenshotStepId,
+                mimeType: "image/png" as const,
+                width: 1600,
+                height: 900,
+                capturedAt: 250,
+                storageKey: `screenshots/${sessionId}/${screenshotStepId}`,
+            },
+            highlight: clickCapture.highlight,
+            viewport: clickCapture.viewport,
+        });
+        const ids = [sessionId, screenshotStepId];
+        const handler = createRecordingMessageHandler(
+            createRecordingStorage(storageArea),
+            {
+                now: () => 300,
+                createId: () => ids.shift() ?? screenshotStepId,
+                prepareScreenshot,
+                attachScreenshot,
+            },
+        );
+        await handler({ version: CONTRACT_VERSION, type: "recording.start", requestId });
+        const source = { url: clickCapture.url, tabId: 4, windowId: 2 };
+
+        const preview = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.select.preview",
+            requestId,
+            capture: clickCapture,
+        }, source);
+        const selected = await handler({
+            version: CONTRACT_VERSION,
+            type: "capture.select",
+            requestId,
+            capture: clickCapture,
+        }, source);
+
+        expect(preview).toMatchObject({ ok: true, session: { steps: [] } });
+        expect(prepareScreenshot).toHaveBeenCalledWith({ tabId: 4, windowId: 2 });
+        expect(attachScreenshot).toHaveBeenCalledWith(
+            expect.objectContaining({ action: "select" }),
+            { tabId: 4, windowId: 2 },
+            candidate,
+        );
+        expect(selected).toMatchObject({
+            ok: true,
+            session: { steps: [{ screenshot: { capturedAt: 250 } }] },
+        });
+    });
+
     it("keeps the persisted step when screenshot capture fails", async () => {
         const storageArea = new FakeStorageArea();
         const reportScreenshotError = vi.fn();

@@ -259,8 +259,13 @@ describe("extension message contracts", () => {
         ).toBe(false);
     });
 
-    it("accepts privacy-safe input, select, and submit captures", () => {
-        for (const type of ["capture.input", "capture.select", "capture.submit"]) {
+    it("accepts privacy-safe input, select preview, select, and submit captures", () => {
+        for (const type of [
+            "capture.input",
+            "capture.select.preview",
+            "capture.select",
+            "capture.submit",
+        ]) {
             expect(RecordingRequestMessageSchema.safeParse({
                 version: CONTRACT_VERSION,
                 type,

@@ -25,7 +25,7 @@ const server = createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(request.url === "/popup"
         ? "<!doctype html><html><head><title>Popup fixture</title></head><body><button id=popup-action>Popup action</button></body></html>"
-        : "<!doctype html><html><head><title>Main fixture</title></head><body><button id=main-action>Main action</button><button id=open-popup onclick=\"window.open('/popup','fixture','popup,width=500,height=400')\">Open popup</button></body></html>");
+        : "<!doctype html><html><head><title>Main fixture</title></head><body><button id=main-action>Main action</button><label for=native-select>Release channel</label><select id=native-select><option value=stable>Stable</option><option value=preview>Preview</option></select><button id=open-popup onclick=\"window.open('/popup','fixture','popup,width=500,height=400')\">Open popup</button></body></html>");
 });
 
 await new Promise((resolveServer) => server.listen(4173, "127.0.0.1", resolveServer));
@@ -61,6 +61,11 @@ try {
     await mainPage.getByRole("button", { name: "Main action" }).click();
     await mainPage.waitForTimeout(250);
 
+    const nativeSelect = mainPage.getByLabel("Release channel");
+    await nativeSelect.click();
+    await mainPage.waitForTimeout(800);
+    await nativeSelect.selectOption("preview");
+
     const popupPromise = context.waitForEvent("page");
     await mainPage.getByRole("button", { name: "Open popup" }).click();
     const popupPage = await popupPromise;
@@ -76,13 +81,20 @@ try {
         const popupStep = session?.steps?.find((step) =>
             step.description.includes("Popup action"),
         );
-        if (popupStep?.screenshot?.storageKey) break;
+        const selectStep = session?.steps?.find((step) => step.action === "select");
+        if (popupStep?.screenshot?.storageKey && selectStep?.screenshot?.storageKey) break;
         await new Promise((resolveWait) => setTimeout(resolveWait, 100));
     } while (Date.now() < deadline);
 
     const mainStep = session.steps.find((step) => step.description.includes("Main action"));
+    const selectStep = session.steps.find((step) => step.action === "select");
     const popupStep = session.steps.find((step) => step.description.includes("Popup action"));
-    if (!mainStep?.screenshot?.storageKey || !popupStep?.screenshot?.storageKey) {
+    if (
+        !mainStep?.screenshot?.storageKey
+        || !selectStep?.screenshot?.storageKey
+        || selectStep.screenshot.capturedAt > selectStep.timestamp
+        || !popupStep?.screenshot?.storageKey
+    ) {
         const popupProbe = await worker.evaluate(async () => {
             const tab = (await chrome.tabs.query({ url: "http://127.0.0.1:4173/popup" }))[0];
             try {
@@ -98,7 +110,7 @@ try {
         });
         throw new Error(`Packaged screenshot capture failed: ${JSON.stringify({ session, popupProbe, workerErrors })}`);
     }
-    console.log("chromium: main and popup window screenshots passed");
+    console.log("chromium: main, native select, and popup window screenshots passed");
 } finally {
     await context?.close();
     await new Promise((resolveServer, reject) => server.close((error) =>

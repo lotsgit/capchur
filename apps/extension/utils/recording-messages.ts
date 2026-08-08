@@ -17,13 +17,17 @@ import type { RecordingStorage } from "./recording-storage";
 import type {
     AttachScreenshot,
     ScreenshotAttachment,
+    PreparedScreenshot,
     ScreenshotSource,
 } from "./screenshot-capture";
+
+const SELECT_PREVIEW_TTL_MS = 10_000;
 
 interface RecordingMessageHandlerOptions {
     now?: () => number;
     createId?: () => string;
     attachScreenshot?: AttachScreenshot;
+    prepareScreenshot?: (source: ScreenshotSource) => Promise<PreparedScreenshot>;
     retryScreenshot?: (step: CapturedStep) => Promise<ScreenshotAttachment>;
     reportScreenshotError?: (error: unknown) => void;
     deleteScreenshot?: (storageKey: string) => Promise<void>;
@@ -45,11 +49,37 @@ export function createRecordingMessageHandler(
 ) => Promise<RecordingResponseMessage> {
     const now = options.now ?? Date.now;
     const createId = options.createId ?? (() => crypto.randomUUID());
+    const pendingSelectScreenshots = new Map<number, Promise<{
+        candidate: PreparedScreenshot;
+        expiresAt: number;
+        url: string;
+        windowId: number;
+    } | null>>();
     let pending = Promise.resolve();
 
     return (message, source) => {
+        const parsedMessage = RecordingRequestMessageSchema.safeParse(message);
+        if (parsedMessage.success && parsedMessage.data.type === "capture.select.preview") {
+            return handleSelectPreview(
+                storage,
+                parsedMessage.data,
+                source,
+                now,
+                options,
+                pendingSelectScreenshots,
+            );
+        }
+
         const response = pending.then(() =>
-            handleRecordingMessage(storage, message, source, now, createId, options),
+            handleRecordingMessage(
+                storage,
+                message,
+                source,
+                now,
+                createId,
+                options,
+                pendingSelectScreenshots,
+            ),
         );
         pending = response.then(
             () => undefined,
@@ -66,6 +96,12 @@ async function handleRecordingMessage(
     now: () => number,
     createId: () => string,
     options: RecordingMessageHandlerOptions,
+    pendingSelectScreenshots: Map<number, Promise<{
+        candidate: PreparedScreenshot;
+        expiresAt: number;
+        url: string;
+        windowId: number;
+    } | null>>,
 ): Promise<RecordingResponseMessage> {
     const parsedMessage = RecordingRequestMessageSchema.safeParse(untrustedMessage);
     if (!parsedMessage.success) {
@@ -118,7 +154,24 @@ async function handleRecordingMessage(
             }
 
             try {
-                const attachment = await options.attachScreenshot(step, screenshotSource);
+                const pendingSelectPromise = message.type === "capture.select"
+                    ? pendingSelectScreenshots.get(screenshotSource.tabId)
+                    : undefined;
+                if (message.type === "capture.select") {
+                    pendingSelectScreenshots.delete(screenshotSource.tabId);
+                }
+                const pendingSelect = await pendingSelectPromise;
+                const prepared = pendingSelect
+                    && pendingSelect.expiresAt >= now()
+                    && pendingSelect.url === message.capture.url
+                    && pendingSelect.windowId === screenshotSource.windowId
+                    ? pendingSelect.candidate
+                    : undefined;
+                const attachment = await options.attachScreenshot(
+                    step,
+                    screenshotSource,
+                    prepared,
+                );
                 const capturedStep = { ...step, ...attachment };
                 const capturedSession = {
                     ...session,
@@ -237,6 +290,9 @@ async function handleRecordingMessage(
             now(),
             createId,
         );
+        if (message.type === "recording.stop" || message.type === "recording.clear") {
+            pendingSelectScreenshots.clear();
+        }
         if (transition.action === "clear") {
             await options.clearScreenshots?.();
             await storage.clear();
@@ -279,6 +335,7 @@ function toStateCommand(message: RecordingRequestMessage): RecordingStateCommand
         case "capture.click":
         case "capture.input":
         case "capture.select":
+        case "capture.select.preview":
         case "capture.submit":
             throw new Error("Capture messages do not transition recording state.");
     }
@@ -356,4 +413,53 @@ function toScreenshotSource(source: RecordingMessageSource): ScreenshotSource | 
     return source.tabId === undefined || source.windowId === undefined
         ? null
         : { tabId: source.tabId, windowId: source.windowId };
+}
+
+async function handleSelectPreview(
+    storage: RecordingStorage,
+    message: Extract<RecordingRequestMessage, { type: "capture.select.preview" }>,
+    source: string | RecordingMessageSource | undefined,
+    now: () => number,
+    options: RecordingMessageHandlerOptions,
+    pendingSelectScreenshots: Map<number, Promise<{
+        candidate: PreparedScreenshot;
+        expiresAt: number;
+        url: string;
+        windowId: number;
+    } | null>>,
+): Promise<RecordingResponseMessage> {
+    const normalizedSource = normalizeSource(source);
+    if (!isMatchingPageSource(normalizedSource.url, message.capture.url)) {
+        return errorResponse(
+            message.requestId,
+            "INVALID_MESSAGE",
+            "The action capture source is invalid.",
+        );
+    }
+
+    const currentSession = await storage.load();
+    const screenshotSource = toScreenshotSource(normalizedSource);
+    if (
+        currentSession?.status !== "recording"
+        || !screenshotSource
+        || !options.prepareScreenshot
+    ) {
+        return successResponse(message.requestId, currentSession);
+    }
+
+    const candidatePromise = options.prepareScreenshot(screenshotSource).then(
+        (candidate) => ({
+            candidate,
+            expiresAt: now() + SELECT_PREVIEW_TTL_MS,
+            url: message.capture.url,
+            windowId: screenshotSource.windowId,
+        }),
+        (error) => {
+            options.reportScreenshotError?.(error);
+            return null;
+        },
+    );
+    pendingSelectScreenshots.set(screenshotSource.tabId, candidatePromise);
+    await candidatePromise;
+    return successResponse(message.requestId, await storage.load());
 }

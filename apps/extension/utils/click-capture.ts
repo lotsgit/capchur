@@ -40,6 +40,17 @@ export function installClickCapture(targetWindow: Window, sendMessage: SendMessa
     };
 
     targetWindow.addEventListener("click", (event) => capture(event, "click"), { capture: true });
+    targetWindow.addEventListener("pointerdown", (event) => {
+        const target = getEventElement(event);
+        if (!target?.closest("select")) {
+            return;
+        }
+
+        const message = createSelectPreviewMessage(event, targetWindow);
+        if (message) {
+            void state.sendMessage(message).catch(() => undefined);
+        }
+    }, { capture: true });
     targetWindow.addEventListener("change", (event) => {
         const target = getEventElement(event);
         if (target?.matches("select")) {
@@ -139,4 +150,20 @@ function isVisible(element: Element, targetWindow: Window): boolean {
 
 function isCaptureInstallationState(value: unknown): value is CaptureInstallationState {
     return typeof value === "object" && value !== null && "sendMessage" in value;
+}
+
+export function createSelectPreviewMessage(
+    event: Event,
+    targetWindow: Window,
+): RecordingRequestMessage | null {
+    if (!getEventElement(event)?.closest("select")) {
+        return null;
+    }
+
+    const message = createActionCaptureMessage(event, targetWindow, "select");
+    if (!message || message.type !== "capture.select") {
+        return null;
+    }
+
+    return { ...message, type: "capture.select.preview" };
 }

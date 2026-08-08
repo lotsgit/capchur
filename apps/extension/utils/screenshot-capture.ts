@@ -20,6 +20,13 @@ export interface ScreenshotSource {
     windowId: number;
 }
 
+export interface PreparedScreenshot {
+    dataUrl: string;
+    dimensions: { width: number; height: number };
+    capturedAt: number;
+    zoom: number | null;
+}
+
 interface ScreenshotCaptureDependencies {
     captureVisibleTab(windowId: number): Promise<string>;
     ensureTabActive(tabId: number, windowId: number): Promise<boolean>;
@@ -34,11 +41,18 @@ interface ScreenshotCaptureDependencies {
 export type AttachScreenshot = (
     step: CapturedStep,
     source: ScreenshotSource,
+    prepared?: PreparedScreenshot,
 ) => Promise<ScreenshotAttachment>;
+
+export interface ScreenshotCapture {
+    (step: CapturedStep, source: ScreenshotSource, prepared?: PreparedScreenshot):
+        Promise<ScreenshotAttachment>;
+    prepare(source: ScreenshotSource): Promise<PreparedScreenshot>;
+}
 
 export function createScreenshotCapture(
     dependencies: ScreenshotCaptureDependencies,
-): AttachScreenshot {
+): ScreenshotCapture {
     const now = dependencies.now ?? Date.now;
     const delay = dependencies.delay ?? ((milliseconds) =>
         new Promise((resolve) => setTimeout(resolve, milliseconds)));
@@ -48,7 +62,7 @@ export function createScreenshotCapture(
         ?? DEFAULT_RENDER_SETTLE_DELAY_MS;
     let lastCaptureStartedAt = Number.NEGATIVE_INFINITY;
 
-    return async (step, source) => {
+    const prepare = async (source: ScreenshotSource): Promise<PreparedScreenshot> => {
         await delay(renderSettleDelay);
 
         const elapsed = now() - lastCaptureStartedAt;
@@ -60,40 +74,57 @@ export function createScreenshotCapture(
             throw new Error("The source tab is no longer active.");
         }
 
-        lastCaptureStartedAt = now();
+        const capturedAt = now();
+        lastCaptureStartedAt = capturedAt;
         const dataUrl = await dependencies.captureVisibleTab(source.windowId);
         const dimensions = readPngDimensions(dataUrl);
-        const storageKey = `screenshots/${step.sessionId}/${step.id}`;
-        await dependencies.saveImage(storageKey, dataUrl);
 
-        let zoom = step.viewport.zoom;
+        let zoom: number | null = null;
         try {
             zoom = await dependencies.getZoom(source.tabId);
         } catch {
-            // The content-script value remains a valid fallback where getZoom is unavailable.
+            // The step's content-script zoom remains the fallback during attachment.
         }
+
+        return { dataUrl, dimensions, capturedAt, zoom };
+    };
+
+    const attach = async (
+        step: CapturedStep,
+        source: ScreenshotSource,
+        prepared?: PreparedScreenshot,
+    ): Promise<ScreenshotAttachment> => {
+        const screenshot = prepared ?? await prepare(source);
+        const storageKey = `screenshots/${step.sessionId}/${step.id}`;
+        await dependencies.saveImage(storageKey, screenshot.dataUrl);
 
         return {
             screenshot: {
                 id: step.id,
                 mimeType: "image/png",
-                width: dimensions.width,
-                height: dimensions.height,
-                capturedAt: now(),
+                width: screenshot.dimensions.width,
+                height: screenshot.dimensions.height,
+                capturedAt: screenshot.capturedAt,
                 storageKey,
             },
             highlight: {
                 rect: convertRectToScreenshotPixels(
                     step.highlight.rect,
                     step.viewport,
-                    dimensions,
+                    screenshot.dimensions,
                 ),
                 coordinateSpace: "screenshot-pixels",
                 hidden: step.highlight.hidden,
             },
-            viewport: { ...step.viewport, zoom },
+            viewport: {
+                ...step.viewport,
+                zoom: screenshot.zoom ?? step.viewport.zoom,
+            },
         };
     };
+
+    attach.prepare = prepare;
+    return attach;
 }
 
 export function convertRectToScreenshotPixels(

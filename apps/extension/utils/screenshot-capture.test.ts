@@ -71,6 +71,25 @@ describe("screenshot capture", () => {
         expect(events).toEqual(["delay:100", "capture"]);
     });
 
+    it("timestamps pixels when capture starts rather than when PNG encoding finishes", async () => {
+        let currentTime = 1_000;
+        const attach = createScreenshotCapture({
+            captureVisibleTab: vi.fn().mockImplementation(async () => {
+                currentTime = 1_500;
+                return pngDataUrl(1280, 720);
+            }),
+            ensureTabActive: vi.fn().mockResolvedValue(true),
+            getZoom: vi.fn().mockResolvedValue(1),
+            saveImage: vi.fn().mockResolvedValue(undefined),
+            delay: vi.fn().mockResolvedValue(undefined),
+            now: () => currentTime,
+        });
+
+        const attachment = await attach(step, { tabId: 4, windowId: 2 });
+
+        expect(attachment.screenshot.capturedAt).toBe(1_000);
+    });
+
     it.each([
         [1, 1280, { x: 100, y: 100, width: 120, height: 45 }],
         [1.25, 1024, { x: 125, y: 100, width: 150, height: 45 }],
@@ -150,5 +169,31 @@ describe("screenshot capture", () => {
             viewport: { scrollX: 300, scrollY: 600, zoom: 1.25 },
         });
         expect(second.screenshot.storageKey).not.toBe(first.screenshot.storageKey);
+    });
+
+    it("attaches prepared pixels without taking a second screenshot", async () => {
+        const captureVisibleTab = vi.fn().mockResolvedValue(pngDataUrl(1280, 720));
+        const saveImage = vi.fn().mockResolvedValue(undefined);
+        const attach = createScreenshotCapture({
+            captureVisibleTab,
+            ensureTabActive: vi.fn().mockResolvedValue(true),
+            getZoom: vi.fn().mockResolvedValue(1.25),
+            saveImage,
+            delay: vi.fn().mockResolvedValue(undefined),
+            now: () => 1_000,
+        });
+
+        const prepared = await attach.prepare({ tabId: 4, windowId: 2 });
+        const attachment = await attach(step, { tabId: 4, windowId: 2 }, prepared);
+
+        expect(captureVisibleTab).toHaveBeenCalledTimes(1);
+        expect(saveImage).toHaveBeenCalledWith(
+            `screenshots/${step.sessionId}/${step.id}`,
+            prepared.dataUrl,
+        );
+        expect(attachment).toMatchObject({
+            screenshot: { capturedAt: 1_000 },
+            viewport: { zoom: 1.25 },
+        });
     });
 });

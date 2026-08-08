@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     createActionCaptureMessage,
     createClickCaptureMessage,
+    createSelectPreviewMessage,
     installClickCapture,
 } from "./click-capture";
 
@@ -113,6 +114,37 @@ describe("content click capture", () => {
         ]);
         expect(JSON.stringify(sendMessage.mock.calls)).not.toContain("Private value");
         expect(JSON.stringify(sendMessage.mock.calls)).not.toContain("Secret option");
+    });
+
+    it("requests a native select preview before recording the committed selection", async () => {
+        const select = document.createElement("select");
+        const option = document.createElement("option");
+        option.textContent = "Private option";
+        select.append(option);
+        document.body.append(select);
+        vi.spyOn(select, "getBoundingClientRect").mockReturnValue(visibleRect);
+        const sendMessage = vi.fn().mockResolvedValue(undefined);
+        installClickCapture(window, sendMessage);
+
+        select.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true }));
+        select.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+        await Promise.resolve();
+
+        expect(sendMessage.mock.calls.map(([message]) => message.type)).toEqual([
+            "capture.select.preview",
+            "capture.select",
+        ]);
+        expect(JSON.stringify(sendMessage.mock.calls)).not.toContain("Private option");
+    });
+
+    it("does not create select previews for other controls", () => {
+        const button = document.createElement("button");
+        button.textContent = "Save";
+        vi.spyOn(button, "getBoundingClientRect").mockReturnValue(visibleRect);
+        const event = new Event("pointerdown");
+        vi.spyOn(event, "composedPath").mockReturnValue([button, document, window]);
+
+        expect(createSelectPreviewMessage(event, window)).toBeNull();
     });
 
     it("uses the current SPA URL and captures controls added after installation", async () => {
