@@ -1,6 +1,6 @@
 # Browser Compatibility
 
-S17 supports Capchur recording in current Chrome, Edge, and Firefox 140 or later. Chrome and Edge consume the same Chromium Manifest V3 package; Firefox has a separate WXT package with built-in data collection consent metadata.
+S17 supports Capchur recording in current Chrome, Edge, and Firefox 142 or later. Chrome and Edge consume the same Chromium Manifest V3 package; Firefox has a separate WXT package with built-in data collection consent metadata.
 
 ## Compatibility Matrix
 

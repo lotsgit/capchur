@@ -68,6 +68,15 @@ async function verifyBundle(bundle, manifestVersion) {
   if (JSON.stringify(optionalOrigins) !== JSON.stringify(["<all_urls>"])) {
     throw new Error(`${bundle}: optional page origins changed unexpectedly.`);
   }
+  if (bundle === "firefox-mv2") {
+    const gecko = manifest.browser_specific_settings?.gecko;
+    if (gecko?.strict_min_version !== "142.0") {
+      throw new Error(`${bundle}: Firefox minimum version must remain 142.0 for data collection consent support.`);
+    }
+    if (!Array.isArray(gecko.data_collection_permissions?.required)) {
+      throw new Error(`${bundle}: Firefox data collection consent metadata is missing.`);
+    }
+  }
 
   const bytes = await directoryBytes(directory);
   if (bytes > maximumUnpackedBytes) {

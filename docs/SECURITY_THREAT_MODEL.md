@@ -31,4 +31,4 @@ Trust boundaries are the page-to-content-script boundary, extension messaging, e
 
 ## Reporting
 
-Report suspected vulnerabilities privately to `security@bizleader.ai`. Do not include captured page content, credentials, tokens, or screenshots in the initial report.
+Report suspected vulnerabilities privately to `security@capchur.io`. Do not include captured page content, credentials, tokens, or screenshots in the initial report.

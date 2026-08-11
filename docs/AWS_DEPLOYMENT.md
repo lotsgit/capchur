@@ -188,6 +188,21 @@ Deploy that exact image without rebuilding it:
   -RollbackImageUri "$repositoryUri:PREVIOUS_TAG"
 ```
 
+For the release rehearsal, use the guarded command below. It records the current
+CloudFormation image, deploys and verifies the previous image, and restores and
+verifies the original image even when rollback verification fails. Review the
+two image URIs in the confirmation prompt before approving the production change:
+
+```powershell
+./infra/aws/rehearse-rollback.ps1 `
+  -Region $region `
+  -RollbackImageUri "$repositoryUri:PREVIOUS_TAG"
+```
+
+Use `-WhatIf` to inspect the planned image transition without changing the stack.
+Record both successful health checks and the image URIs in
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
 Do not reverse a database migration during application rollback. Follow [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) if incompatible data was written.
 
 ## 9. Rehearse Backup Restore

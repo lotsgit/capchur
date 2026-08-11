@@ -48,7 +48,7 @@ Minimum alerts:
 6. Notify affected users and authorities when required. Publish only verified facts.
 7. Complete a blameless review with corrective owners and deadlines.
 
-Contacts: `security@bizleader.ai` for security/privacy incidents and `support@bizleader.ai` for service incidents.
+Contacts: `security@capchur.io` for security/privacy incidents and `support@capchur.io` for service incidents.
 
 ## Deployment And Rollback
 
