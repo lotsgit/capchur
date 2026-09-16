@@ -29,7 +29,7 @@ Do not mark a session `DONE` because code exists. Its acceptance checks and vali
 
 **Current milestone:** `S18 - Security, reliability, and release`
 
-**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, hardened click/input/select/submit capture, cross-browser Chromium/Edge/Firefox packaging and E2E coverage, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, resilient extension-to-cloud session sync, HTML, Markdown, PDF, and DOCX exports, opt-in server-side AI description enhancement, and controlled workspace collaboration with revocable links, comments, immutable revisions, conflict-aware restore, and sensitive audit events are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private objects locally; production adapters target PostgreSQL and S3-compatible storage.
+**Current repository status:** Runtime-validated capture and guide contracts, persistent recording state, popup controls, hardened click/input/select/submit capture, cross-browser Chromium/Edge/Firefox packaging and E2E coverage, visible-tab screenshots, local session review, a responsive web guide editor, trusted persistence APIs, database-backed workspace authentication, resilient extension-to-cloud session sync, HTML, Markdown, PDF, and DOCX exports, opt-in server-side AI description enhancement, controlled workspace collaboration with revocable links, comments, immutable revisions, conflict-aware restore, and sensitive audit events, and (web-app scope; see `S19`) AI-generated per-step notes and guide introductions with a free online provider and a fully local in-browser option, are implemented with focused Vitest coverage. Development persists PostgreSQL-compatible data and private objects locally; production adapters target PostgreSQL and S3-compatible storage.
 
 **Last completed session:** `S17 - Capture hardening and cross-browser support`
 
@@ -550,6 +550,46 @@ Do not push unless a remote repository has been configured and you intend to pub
 
 **Validation evidence:** A frozen-lockfile install and all 117 pre-acceptance workspace tests passed; repository typecheck, lint, production builds, and the high-severity dependency audit passed. Production-browser Axe, overflow, console-error, and performance gates passed at 1440x900 and 390x844. Release-origin Chrome MV3 and Firefox MV2 packages passed manifest, permission, source/bundle safety, and 5 MiB size gates plus Chromium/Edge/Firefox capture E2E. Privacy, threat, store, retention, backup/restore, observability, incident, and forward-only rollback procedures are documented. The AWS `ap-south-1` production stack reached `CREATE_COMPLETE`; ECS/ALB health, ACM TLS, Route 53, private encrypted RDS, private versioned S3, daily AWS Backup configuration, alarms, and the public health/authentication boundary were verified. On 2026-08-05, post-canary RDS and S3 recovery points were restored into an isolated no-ingress environment in 9m44s; a one-off validator confirmed the guide, revision, object metadata and SHA-256, and workspace isolation before all temporary restore infrastructure was removed. The acceptance-completion change adds workspace-scoped guide listing, persisted dashboard create/open/delete flows, public installation onboarding, active Help and Settings routes, password visibility/change/reset flows, and conditional AWS email/store configuration. All 119 workspace tests passed sequentially; repository typecheck, lint, CloudFormation validation, production builds, and focused API/component tests passed. Browser checks confirmed account creation, password visibility, an empty first-run dashboard, persisted blank-guide creation, enabled PDF/DOCX controls, zero console errors, and no overflow on Capture, Help, Settings, or recovery at 1440x900 and 390x844. The store-preparation follow-up adds a statically rendered public privacy policy and exact Chrome, Edge, and Firefox submission worksheets covering permissions, user-data declarations, assets, reviewer testing, and Firefox source reproduction. On 2026-08-10, all 136 workspace tests, typecheck, lint, and production builds passed; release-origin packages passed Chromium, Edge, and Firefox capture E2E plus manifest, permission, bundle-safety, and size checks. Patch overrides resolved new `js-yaml` and Nano ID advisories; the two upstream-unpatched development-only `image-size` findings are formally accepted under **Known Risks**. The guarded rollback rehearsal script parsed successfully and its `-WhatIf` run resolved the retained previous and current production image URIs without changing AWS. Final `DONE` status remains gated on production email/store configuration, clean-profile installation, live application rollback and restoration, and store validation/sign-off in the release checklist.
 
+### S19 - AI-Generated Guide Notes
+
+**Status:** `PLANNED`
+
+**Goal:** Add AI-generated per-step notes and a guide introduction, active by default, with a
+free-tier online option and a fully local in-browser option chosen once per account.
+
+**Tasks:**
+
+- [x] Add a nullable per-step `notes` contract/DB field and AI request/response/preferences
+      contracts (`packages/contracts`).
+- [x] Add a pure shared package `packages/ai-notes-core` for redaction, prompts, and truncation
+      reused by the server and the browser.
+- [x] Add server AI services for step notes and guide introduction on a shared OpenAI-compatible
+      provider with an ordered free-model fallback chain (retries the next model on a 429),
+      defaulting to OpenRouter, plus a daily rate-limit cap alongside the existing per-minute one.
+- [x] Add per-user AI preference storage (online/local, automatic/manual) and a settings API,
+      settings-page section, and first-use dialog in the web app.
+- [x] Wire step notes and guide-introduction generation into the web guide editor, dispatching to
+      the online API or a local in-browser engine (Chrome's on-device Prompt API, falling back to
+      WebLLM over WebGPU) per the account's saved preference.
+- [ ] Mirror local-engine and preference-sync support in the extension review page, with background
+      message plumbing for the online path and a manifest CSP update for WebGPU/WASM.
+- [ ] Manual verification: desktop/mobile geometry checks for the new dialog and settings UI; a
+      real-browser smoke test of the local engine (Prompt API and the WebLLM fallback) and its
+      "unavailable" messaging path.
+
+**Acceptance:** A new account is prompted once to choose online/local processing and
+automatic/manual generation; notes and introductions generate accordingly in both the web editor
+and the extension review page; screenshots never reach any AI provider or local model in either
+mode; all validation commands pass.
+
+**Validation evidence (web-app scope only; extension scope remains open):** 173 workspace tests
+passed (33 contracts, 4 ai-notes-core, 17 capture-core, 5 export-core, 51 extension, 63 web,
+including new `ai-provider`, `ai-step-notes`, `ai-introduction`, `ai-preferences`, `local-engine`,
+and guide-editor/settings-form coverage). Repository typecheck, lint, and production builds passed.
+The dependency audit shows no new findings from `@capchur/ai-notes-core` or `@mlc-ai/web-llm`; all
+reported findings are pre-existing toolchain/dev-dependency advisories, plus a Next.js advisory
+that predates this session and is unrelated to it (record separately under **Known Risks**).
+
 ## Progress Summary
 
 | Session                | Status | Commit / evidence | Notes                                                                           |
@@ -573,6 +613,7 @@ Do not push unless a remote repository has been configured and you intend to pub
 | S16 Collaboration      | DONE   | This commit       | Revocable sharing, comments, revisions, conflicts, and audit.                   |
 | S17 Hardening          | DONE   | This commit       | Hardened actions, explicit limits, and cross-browser evidence.                  |
 | S18 Release            | NEXT   | Release checklist | Automated gates, backup restore, live rollback, and Chrome package install pass; email, signed-store validation, and operator sign-off remain. |
+| S19 AI guide notes     | PLANNED | This commit      | Contracts, server, settings, and web-editor scope done and tested; extension review integration and manual browser verification remain.        |
 
 ## Decision Log
 
@@ -605,6 +646,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | 2026-08-04 | Use delegated, value-free action capture with per-origin user grants and browser-specific WXT packages.                                                                                                     | Real workflows cross SPA routes, tabs, frames, and control types, while privacy and browser stores require explicit access and data-use declarations.                | Click, committed input, select, and submit events share one strict payload; new tabs are enabled by user gesture; unsupported surfaces preserve the session; Chrome/Edge use Chromium MV3 and Firefox 142+ uses a consent-declaring MV2 package.                                               |
 | 2026-08-04 | Gate releases with frozen dependency resolution, cross-browser capture E2E, Axe/performance budgets, exact manifest checks, reviewed bundle signatures, package hashes, and an operator sign-off checklist. | S18 requires repeatable evidence and must distinguish application-owned unsafe code from reviewed React/Zod framework internals.                                     | Each release uses an HTTPS web origin, versioned Chrome/Firefox archives, a 5 MiB unpacked budget, zero serious/critical Axe findings, and documented restore/rollback evidence before publication.                                                                                            |
 | 2026-08-04 | Deploy production with immutable ECR images on ECS Fargate behind an ACM-enabled ALB, private RDS PostgreSQL, private versioned S3, and AWS Backup.                                                         | The Next.js server needs a stable Node 22 runtime with Playwright Chromium, IAM-backed object access, managed TLS/DNS, retained recovery points, and image rollback. | Route 53 aliases target the ALB; generated secrets stay in Secrets Manager; ECS is the only database client; CloudFormation owns infrastructure; operator deployment, restore, alarms, and rollback steps live in `docs/AWS_DEPLOYMENT.md`.                                                    |
+| 2026-09-16 | Add AI-generated per-step notes and a guide introduction, active by default, with a free-tier online option (OpenRouter, ordered model fallback on 429) and a fully local in-browser option (Prompt API, falling back to WebLLM/WebGPU), chosen once per account and reused across sessions. | Notes must stay free for the app and the user, work without a payment/API-key requirement for the local path, and let privacy-sensitive users keep all step text on-device, without weakening the existing owner-gated S15 description feature. | New AI endpoints allow any authenticated member (not owner-only, a deliberate deviation from S15); `CAPCHUR_AI_MODEL` is now an ordered comma-separated list shared with S15's provider; per-user preferences persist server-side and sync to the extension via the existing Bearer-token pattern; the extension review-page mirror of this feature remains open (tracked in S19). |
 
 ## Known Risks
 
@@ -617,6 +659,7 @@ Record decisions that affect more than one module or future session. Do not sile
 | Cross-origin frames and closed shadow roots limit DOM access.                                                                                 | Accepted for browser MVP | Capture permitted frames and open shadow roots; require an explicit origin grant where possible and explain inaccessible contexts without data loss.                                                                                         |
 | Mozilla `web-ext lint` flags generated Zod `Function` constructors and React DOM internals in the packaged extension.                         | Accepted for 0.1.0       | S18 inspection found one Zod `Function("")` capability probe and dormant React unsafe-HTML handling; application source invokes neither. The release verifier rejects other dynamic execution and scans application source on every package. |
 | `image-size` 2.0.2 has two high-severity infinite-loop advisories with no patched release.                                                    | Accepted for 0.1.0       | The transitive package is used only by Mozilla `addons-linter` against repository-controlled extension icons during development packaging; it is absent from application runtime paths and never processes captured or uploaded images. Reassess when `addons-linter` replaces the archived dependency. |
+| The pinned `next` 16.2.12 has two critical advisories (Windows-hosted RCE; AVIF Image Optimization RCE), patched in `next` >=16.3.3. Surfaced by the 2026-09-16 audit, unrelated to that session's change. | Open                     | Plan a dedicated `next` upgrade session (typecheck/lint/build/E2E across both apps) before production release; do not patch inline as part of an unrelated feature change. |
 
 ## Session Completion Record
 

@@ -3,6 +3,9 @@ import {
   AiDescriptionApi,
   createEnvironmentAiDescriptionService,
 } from "./ai-description";
+import { AiIntroductionApi, createEnvironmentAiIntroductionService } from "./ai-introduction";
+import { AiPreferencesApi, createAiPreferencesRepository } from "./ai-preferences";
+import { AiStepNotesApi, createEnvironmentAiStepNotesService } from "./ai-step-notes";
 import { createAiUsageRecorder } from "./ai-usage-repository";
 import { ExtensionApi, PersistenceApi } from "./api";
 import { CollaborationApi } from "./collaboration-api";
@@ -17,6 +20,9 @@ import { createPersistenceRepository } from "./persistence-repository";
 
 const globalRuntime = globalThis as typeof globalThis & {
   capchurAiDescriptionApi?: Promise<AiDescriptionApi>;
+  capchurAiIntroductionApi?: Promise<AiIntroductionApi>;
+  capchurAiPreferencesApi?: Promise<AiPreferencesApi>;
+  capchurAiStepNotesApi?: Promise<AiStepNotesApi>;
   capchurAuth?: Promise<ReturnType<typeof createAuth>>;
   capchurCollaborationApi?: Promise<CollaborationApi>;
   capchurExtensionApi?: Promise<ExtensionApi>;
@@ -36,6 +42,45 @@ async function createAiDescriptionApi(): Promise<AiDescriptionApi> {
 export function getAiDescriptionApi(): Promise<AiDescriptionApi> {
   globalRuntime.capchurAiDescriptionApi ??= createAiDescriptionApi();
   return globalRuntime.capchurAiDescriptionApi;
+}
+
+async function createAiStepNotesApi(): Promise<AiStepNotesApi> {
+  const database = await getDatabase();
+  return new AiStepNotesApi(
+    await getWorkspaceAuthenticator(),
+    createEnvironmentAiStepNotesService(createAiUsageRecorder(database)),
+  );
+}
+
+export function getAiStepNotesApi(): Promise<AiStepNotesApi> {
+  globalRuntime.capchurAiStepNotesApi ??= createAiStepNotesApi();
+  return globalRuntime.capchurAiStepNotesApi;
+}
+
+async function createAiIntroductionApi(): Promise<AiIntroductionApi> {
+  const database = await getDatabase();
+  return new AiIntroductionApi(
+    await getWorkspaceAuthenticator(),
+    createEnvironmentAiIntroductionService(createAiUsageRecorder(database)),
+  );
+}
+
+export function getAiIntroductionApi(): Promise<AiIntroductionApi> {
+  globalRuntime.capchurAiIntroductionApi ??= createAiIntroductionApi();
+  return globalRuntime.capchurAiIntroductionApi;
+}
+
+async function createAiPreferencesApi(): Promise<AiPreferencesApi> {
+  const database = await getDatabase();
+  return new AiPreferencesApi(
+    await getWorkspaceAuthenticator(),
+    createAiPreferencesRepository(database),
+  );
+}
+
+export function getAiPreferencesApi(): Promise<AiPreferencesApi> {
+  globalRuntime.capchurAiPreferencesApi ??= createAiPreferencesApi();
+  return globalRuntime.capchurAiPreferencesApi;
 }
 
 export function getAuth(): Promise<ReturnType<typeof createAuth>> {

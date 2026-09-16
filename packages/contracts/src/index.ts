@@ -155,6 +155,8 @@ export const GuideStepSchema = z.strictObject({
     title: NonEmptyStringSchema,
     description: z.string().trim().max(5_000),
     section: z.string().trim().max(200).nullable().default(null),
+    // AI-only supporting detail; null means no extra detail was needed for this step.
+    notes: z.string().trim().max(2_000).nullable().default(null),
     media: GuideMediaSchema.nullable(),
     annotation: GuideAnnotationSchema.nullable(),
 });
@@ -308,6 +310,73 @@ export const AiDescriptionEnhancementResponseSchema = z.strictObject({
         "provider-failure",
         "invalid-output",
     ]).nullable(),
+});
+
+const AiFallbackReasonSchema = z.enum([
+    "not-configured",
+    "rate-limited",
+    "provider-failure",
+    "invalid-output",
+]).nullable();
+
+export const AiStepNotesEnhancementRequestSchema = z.strictObject({
+    consent: z.literal(true),
+    stepTitle: z.string().trim().max(2_000),
+    description: z.string().trim().max(5_000),
+    section: z.string().trim().max(200).nullable(),
+    existingNotes: z.string().trim().max(2_000).nullable(),
+});
+
+export const AiStepNotesProviderOutputSchema = z.strictObject({
+    // Null means the AI judged this step needs no supplementary detail.
+    notes: z.string().trim().min(1).max(500).nullable(),
+});
+
+export const AiStepNotesEnhancementResponseSchema = z.strictObject({
+    notes: z.string().trim().max(2_000).nullable(),
+    source: z.enum(["ai", "deterministic"]),
+    fallbackReason: AiFallbackReasonSchema,
+});
+
+const AiIntroductionStepContextSchema = z.strictObject({
+    title: z.string().trim().max(300),
+    section: z.string().trim().max(200).nullable(),
+    description: z.string().trim().max(300),
+});
+
+export const AiIntroductionEnhancementRequestSchema = z.strictObject({
+    consent: z.literal(true),
+    guideTitle: z.string().trim().max(2_000),
+    existingIntroduction: z.string().trim().max(10_000),
+    steps: z.array(AiIntroductionStepContextSchema).max(50),
+});
+
+export const AiIntroductionProviderOutputSchema = z.strictObject({
+    introduction: z.string().trim().min(1).max(2_000),
+});
+
+export const AiIntroductionEnhancementResponseSchema = z.strictObject({
+    introduction: z.string().trim().max(10_000),
+    source: z.enum(["ai", "deterministic"]),
+    fallbackReason: AiFallbackReasonSchema,
+});
+
+export const AiProcessingModeSchema = z.enum(["online", "local"]);
+export const AiTriggerModeSchema = z.enum(["automatic", "manual"]);
+
+export const AiPreferencesSchema = z.strictObject({
+    processingMode: AiProcessingModeSchema,
+    triggerMode: AiTriggerModeSchema,
+    configuredAt: TimestampSchema,
+});
+
+export const AiPreferencesWriteSchema = z.strictObject({
+    processingMode: AiProcessingModeSchema,
+    triggerMode: AiTriggerModeSchema,
+});
+
+export const AiPreferencesResponseSchema = z.strictObject({
+    preferences: AiPreferencesSchema.nullable(),
 });
 
 export const RecordingSessionWriteSchema = z.strictObject({
@@ -617,6 +686,17 @@ export type GuideAuditEvent = z.infer<typeof GuideAuditEventSchema>;
 export type AiDescriptionEnhancementRequest = z.infer<typeof AiDescriptionEnhancementRequestSchema>;
 export type AiDescriptionProviderOutput = z.infer<typeof AiDescriptionProviderOutputSchema>;
 export type AiDescriptionEnhancementResponse = z.infer<typeof AiDescriptionEnhancementResponseSchema>;
+export type AiStepNotesEnhancementRequest = z.infer<typeof AiStepNotesEnhancementRequestSchema>;
+export type AiStepNotesProviderOutput = z.infer<typeof AiStepNotesProviderOutputSchema>;
+export type AiStepNotesEnhancementResponse = z.infer<typeof AiStepNotesEnhancementResponseSchema>;
+export type AiIntroductionEnhancementRequest = z.infer<typeof AiIntroductionEnhancementRequestSchema>;
+export type AiIntroductionProviderOutput = z.infer<typeof AiIntroductionProviderOutputSchema>;
+export type AiIntroductionEnhancementResponse = z.infer<typeof AiIntroductionEnhancementResponseSchema>;
+export type AiProcessingMode = z.infer<typeof AiProcessingModeSchema>;
+export type AiTriggerMode = z.infer<typeof AiTriggerModeSchema>;
+export type AiPreferences = z.infer<typeof AiPreferencesSchema>;
+export type AiPreferencesWrite = z.infer<typeof AiPreferencesWriteSchema>;
+export type AiPreferencesResponse = z.infer<typeof AiPreferencesResponseSchema>;
 export type RecordingSessionWrite = z.infer<typeof RecordingSessionWriteSchema>;
 export type ImageUploadIntent = z.infer<typeof ImageUploadIntentSchema>;
 export type SignedImageUpload = z.infer<typeof SignedImageUploadSchema>;

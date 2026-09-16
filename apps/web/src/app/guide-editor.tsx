@@ -14,6 +14,7 @@ import {
   AiDescriptionEnhancementResponseSchema,
   ExportJobSchema,
   GuideSchema,
+  type AiPreferencesWrite,
   type ExportFormat,
   type ExportJob,
   type Guide,
@@ -24,7 +25,9 @@ import {
   updateGuideDetails, updateGuideStep, type StepDirection,
 } from "@/lib/guide-editor-state";
 import { loadGuideFixture } from "@/lib/guide-fixture";
+import { enhanceIntroduction, enhanceStepNotes } from "@/lib/ai/notes-client";
 import { AccountControl } from "@/app/account-control";
+import { AiPreferencesDialog } from "@/app/ai-preferences-dialog";
 import { AppNavigation } from "@/app/app-navigation";
 import { CollaborationPanel } from "@/app/collaboration-panel";
 
@@ -62,6 +65,12 @@ export function GuideEditor({
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiState, setAiState] = useState<"idle" | "loading">("idle");
   const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiPreferences, setAiPreferences] = useState<AiPreferencesWrite | null>(null);
+  const [notesState, setNotesState] = useState<"idle" | "loading">("idle");
+  const [notesMessage, setNotesMessage] = useState<string | null>(null);
+  const [introductionState, setIntroductionState] = useState<"idle" | "loading">("idle");
+  const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
+  const autoNotesAttempted = useRef(new Set<string>());
   const guideRef = useRef<Guide | null>(null);
 
   useEffect(() => {
@@ -111,7 +120,7 @@ export function GuideEditor({
     if (guide && selectedStepId) commit(updateGuideStep(guide, selectedStepId, changes, guide.updatedAt + 1));
   }
 
-  function editSelectedStep(changes: Partial<Pick<GuideStep, "title" | "description" | "section" | "annotation">>) {
+  function editSelectedStep(changes: Partial<Pick<GuideStep, "title" | "description" | "section" | "notes" | "annotation">>) {
     if (guide && selectedStepId) commit(updateGuideStep(guide, selectedStepId, changes, guide.updatedAt + 1));
   }
 
@@ -286,7 +295,71 @@ export function GuideEditor({
     }
   }
 
+  const generateStepNotes = useCallback(async (step: GuideStep) => {
+    if (!aiPreferences || notesState === "loading") return;
+    setNotesState("loading");
+    setNotesMessage(null);
+    try {
+      const result = await enhanceStepNotes(aiPreferences.processingMode, {
+        consent: true,
+        stepTitle: step.title,
+        description: step.description,
+        section: step.section,
+        existingNotes: step.notes,
+      });
+      if (result.source === "ai") {
+        const currentGuide = guideRef.current;
+        if (currentGuide?.steps.some((candidate) => candidate.id === step.id)) {
+          commit(updateGuideStep(currentGuide, step.id, { notes: result.notes }, currentGuide.updatedAt + 1));
+        }
+        setNotesMessage(result.notes ? "AI notes added" : "No extra notes were needed");
+      } else {
+        setNotesMessage(result.fallbackReason === "rate-limited"
+          ? "Notes unavailable - try again later"
+          : "Notes unavailable right now");
+      }
+    } catch {
+      setNotesMessage("Notes unavailable right now");
+    } finally {
+      setNotesState("idle");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiPreferences, notesState]);
+
+  async function generateIntroduction() {
+    if (!guide || !aiPreferences || introductionState === "loading") return;
+    setIntroductionState("loading");
+    setIntroductionMessage(null);
+    try {
+      const result = await enhanceIntroduction(aiPreferences.processingMode, {
+        consent: true,
+        guideTitle: guide.title,
+        existingIntroduction: guide.introduction,
+        steps: guide.steps.map((step) => ({ title: step.title, section: step.section, description: step.description })),
+      });
+      if (result.source === "ai") {
+        editGuide({ introduction: result.introduction });
+        setIntroductionMessage("AI introduction applied");
+      } else {
+        setIntroductionMessage(result.fallbackReason === "rate-limited"
+          ? "Introduction unavailable - try again later"
+          : "Introduction unavailable right now");
+      }
+    } catch {
+      setIntroductionMessage("Introduction unavailable right now");
+    } finally {
+      setIntroductionState("idle");
+    }
+  }
+
   const selectedStep = guide?.steps.find((step) => step.id === selectedStepId) ?? null;
+
+  useEffect(() => {
+    if (!aiPreferences || aiPreferences.triggerMode !== "automatic" || !selectedStep) return;
+    if (selectedStep.notes !== null || autoNotesAttempted.current.has(selectedStep.id)) return;
+    autoNotesAttempted.current.add(selectedStep.id);
+    void generateStepNotes(selectedStep);
+  }, [aiPreferences, selectedStep, generateStepNotes]);
 
   if (loadState === "loading") {
     return <main className="state-page" aria-busy="true"><LoaderCircle className="state-spinner" /><p>Opening your guide workspace</p></main>;
@@ -310,6 +383,7 @@ export function GuideEditor({
   return (
     <main className="editor-shell">
       <AppNavigation active="guides" />
+      {identity && <AiPreferencesDialog onResolved={setAiPreferences} />}
 
       <section className="guide-panel" aria-label="Guide details">
         <div className="panel-heading">
@@ -323,6 +397,15 @@ export function GuideEditor({
           <textarea id="guide-description" rows={2} value={guide.description} onChange={(event) => editGuide({ description: event.target.value })} />
           <label htmlFor="guide-introduction">Introduction</label>
           <textarea id="guide-introduction" rows={3} value={guide.introduction} onChange={(event) => editGuide({ introduction: event.target.value })} />
+          {aiPreferences && (
+            <div className="ai-description-controls">
+              <button type="button" disabled={introductionState === "loading"} onClick={() => { void generateIntroduction(); }}>
+                {introductionState === "loading" ? <LoaderCircle className="state-spinner" size={15} /> : <Sparkles size={15} />}
+                Generate introduction
+              </button>
+              {introductionMessage && <span role="status">{introductionMessage}</span>}
+            </div>
+          )}
           <div className="branding-fields">
             <label>Brand name<input value={guide.branding.name} onChange={(event) => editGuide({ branding: { ...guide.branding, name: event.target.value } })} /></label>
             <label>Accent<input type="color" value={guide.branding.accentColor} onChange={(event) => editGuide({ branding: { ...guide.branding, accentColor: event.target.value } })} /></label>
@@ -394,6 +477,18 @@ export function GuideEditor({
               <input id="step-section" value={selectedStep.section ?? ""} placeholder="Optional section heading" onChange={(event) => editSelectedStep({ section: event.target.value || null })} />
               <label htmlFor="step-description">Supporting detail</label>
               <textarea id="step-description" rows={4} value={selectedStep.description} onChange={(event) => editStep({ title: selectedStep.title, description: event.target.value })} />
+              {(selectedStep.notes !== null || aiPreferences) && (
+                <>
+                  <label htmlFor="step-notes">Notes (AI)</label>
+                  <textarea
+                    id="step-notes"
+                    rows={2}
+                    placeholder="Optional AI-added context, shown only when useful"
+                    value={selectedStep.notes ?? ""}
+                    onChange={(event) => editSelectedStep({ notes: event.target.value || null })}
+                  />
+                </>
+              )}
               <div className="ai-description-controls">
                 <label className="ai-opt-in">
                   <input
@@ -414,6 +509,19 @@ export function GuideEditor({
                 </button>
                 {aiMessage && <span role="status">{aiMessage}</span>}
               </div>
+              {aiPreferences && (
+                <div className="ai-description-controls">
+                  <button
+                    type="button"
+                    disabled={notesState === "loading"}
+                    onClick={() => { void generateStepNotes(selectedStep); }}
+                  >
+                    {notesState === "loading" ? <LoaderCircle className="state-spinner" size={15} /> : <Sparkles size={15} />}
+                    Generate notes
+                  </button>
+                  {notesMessage && <span role="status">{notesMessage}</span>}
+                </div>
+              )}
             </section>
           </div>
         ) : (

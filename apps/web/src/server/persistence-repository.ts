@@ -91,6 +91,7 @@ function mapGuide(
       title: step.title,
       description: step.description,
       section: step.section,
+      notes: step.notes,
       media: step.media,
       annotation: step.annotation,
     })),
@@ -150,6 +151,7 @@ function recordingSessionToGuide(session: RecordingSession): GuideWrite {
       title: step.description,
       description: step.pageTitle,
       section: null,
+      notes: null,
       media: null,
       annotation: step.screenshot && step.highlight.coordinateSpace === "screenshot-pixels"
         ? {

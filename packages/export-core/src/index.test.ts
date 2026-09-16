@@ -19,6 +19,7 @@ const guide: Guide = {
         title: "Second",
         description: "No image",
         section: "Finish",
+        notes: null,
         media: null,
         annotation: null,
     }, {
@@ -27,6 +28,7 @@ const guide: Guide = {
         title: "Click [Save]",
         description: "Confirm <release>",
         section: "Prepare",
+        notes: null,
         media: { type: "image", source: "/private/source.png", width: 8, height: 8, alt: "Save [button]" },
         annotation: {
             rect: { x: 3, y: 3, width: 3, height: 3 },

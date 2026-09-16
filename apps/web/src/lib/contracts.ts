@@ -1,5 +1,11 @@
 export {
     AiDescriptionEnhancementResponseSchema,
+    AiIntroductionEnhancementResponseSchema,
+    AiIntroductionProviderOutputSchema,
+    AiPreferencesResponseSchema,
+    AiPreferencesSchema,
+    AiStepNotesEnhancementResponseSchema,
+    AiStepNotesProviderOutputSchema,
     CapturedStepSchema,
     ExportJobSchema,
     GuideAccessSchema,
@@ -14,6 +20,14 @@ export {
 } from "@capchur/contracts";
 
 export type {
+    AiIntroductionEnhancementRequest,
+    AiIntroductionEnhancementResponse,
+    AiPreferences,
+    AiPreferencesWrite,
+    AiProcessingMode,
+    AiStepNotesEnhancementRequest,
+    AiStepNotesEnhancementResponse,
+    AiTriggerMode,
     CapturedStep,
     ExportFormat,
     ExportJob,

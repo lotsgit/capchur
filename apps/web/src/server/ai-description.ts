@@ -5,6 +5,7 @@ import {
   type AiDescriptionEnhancementResponse,
 } from "@capchur/contracts";
 
+import { createEnvironmentAiProviderConfig } from "./ai-provider";
 import type { WorkspaceAuthenticator, WorkspacePrincipal } from "./auth";
 
 const SYSTEM_PROMPT = [
@@ -45,6 +46,8 @@ export interface AiUsageRecorder {
     outputTokens: number;
     estimatedCostMicros: number;
     createdAt: number;
+    // Defaults to "description" at the database layer when omitted (S15 callers unchanged).
+    feature?: "description" | "notes" | "introduction";
   }): Promise<void>;
 }
 
@@ -194,6 +197,8 @@ export class OpenAiCompatibleDescriptionProvider implements AiDescriptionProvide
     private readonly apiKey: string,
     public readonly model: string,
     private readonly fetcher: typeof fetch = fetch,
+    private readonly appUrl: string | null = null,
+    private readonly appName: string | null = null,
   ) {}
 
   async enhance(input: SanitizedAiDescriptionInput, signal: AbortSignal) {
@@ -202,6 +207,8 @@ export class OpenAiCompatibleDescriptionProvider implements AiDescriptionProvide
       headers: {
         authorization: `Bearer ${this.apiKey}`,
         "content-type": "application/json",
+        ...(this.appUrl ? { "HTTP-Referer": this.appUrl } : {}),
+        ...(this.appName ? { "X-Title": this.appName } : {}),
       },
       body: JSON.stringify({
         model: this.model,
@@ -258,16 +265,18 @@ function nonnegativeEnvironmentNumber(name: string): number {
 }
 
 export function createEnvironmentAiDescriptionProvider(): AiDescriptionProvider | null {
-  const apiKey = process.env.CAPCHUR_AI_API_KEY?.trim();
-  const model = process.env.CAPCHUR_AI_MODEL?.trim();
-  if (!apiKey || !model) return null;
-  const endpoint = process.env.CAPCHUR_AI_ENDPOINT?.trim()
-    || "https://api.openai.com/v1/chat/completions";
-  const url = new URL(endpoint);
-  if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
-    throw new Error("CAPCHUR_AI_ENDPOINT must use HTTPS in production");
-  }
-  return new OpenAiCompatibleDescriptionProvider(url.toString(), apiKey, model);
+  const config = createEnvironmentAiProviderConfig();
+  if (!config) return null;
+  // Description enhancement uses only the first configured free model; the notes/introduction
+  // services (ai-provider.ts) use the full ordered list as a 429 fallback chain.
+  return new OpenAiCompatibleDescriptionProvider(
+    config.endpoint,
+    config.apiKey,
+    config.models[0],
+    fetch,
+    config.appUrl,
+    config.appName,
+  );
 }
 
 export function createEnvironmentAiDescriptionService(

@@ -20,6 +20,7 @@ const guide: Guide = {
       title: "Open releases",
       description: "Choose Releases.",
       section: null,
+      notes: null,
       media: null,
       annotation: null,
     },
@@ -29,6 +30,7 @@ const guide: Guide = {
       title: "Create update",
       description: "Choose New update.",
       section: null,
+      notes: null,
       media: null,
       annotation: null,
     },
@@ -164,16 +166,26 @@ describe("GuideEditor", () => {
       error: null,
       downloadUrl: null,
     } as const;
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(Response.json(guide))
-      .mockResolvedValueOnce(Response.json(job, { status: 202 }))
-      .mockResolvedValueOnce(Response.json({
-        ...job,
-        status: "completed",
-        attempts: 1,
-        updatedAt: 300,
-        downloadUrl: "/api/images/content?token=signed-export",
-      }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/settings/ai-preferences")) {
+        return Response.json({ preferences: { processingMode: "online", triggerMode: "manual", configuredAt: 1 } });
+      }
+      if (url === `/api/guides/${guide.id}`) return Response.json(guide);
+      if (url === `/api/guides/${guide.id}/exports` && init?.method === "POST") {
+        return Response.json(job, { status: 202 });
+      }
+      if (url === `/api/exports/${job.id}`) {
+        return Response.json({
+          ...job,
+          status: "completed",
+          attempts: 1,
+          updatedAt: 300,
+          downloadUrl: "/api/images/content?token=signed-export",
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<GuideEditor
@@ -193,13 +205,21 @@ describe("GuideEditor", () => {
   });
 
   it("requires opt-in and keeps the deterministic description when AI falls back", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(Response.json(guide))
-      .mockResolvedValueOnce(Response.json({
-        description: guide.steps[0].description,
-        source: "deterministic",
-        fallbackReason: "provider-failure",
-      }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/settings/ai-preferences")) {
+        return Response.json({ preferences: { processingMode: "online", triggerMode: "manual", configuredAt: 1 } });
+      }
+      if (url === `/api/guides/${guide.id}`) return Response.json(guide);
+      if (url === "/api/ai/descriptions" && init?.method === "POST") {
+        return Response.json({
+          description: guide.steps[0].description,
+          source: "deterministic",
+          fallbackReason: "provider-failure",
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<GuideEditor
@@ -224,6 +244,44 @@ describe("GuideEditor", () => {
         deterministicDescription: guide.steps[0].description,
         stepTitle: guide.steps[0].title,
         section: null,
+      }),
+    }));
+  });
+
+  it("generates step notes on demand once AI preferences resolve to manual", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/settings/ai-preferences")) {
+        return Response.json({ preferences: { processingMode: "online", triggerMode: "manual", configuredAt: 1 } });
+      }
+      if (url === `/api/guides/${guide.id}`) return Response.json(guide);
+      if (url === "/api/ai/notes" && init?.method === "POST") {
+        return Response.json({ notes: "Requires an active session.", source: "ai", fallbackReason: null });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<GuideEditor
+      guideId={guide.id}
+      fixtureLoader={() => Promise.resolve(guide)}
+      identity={{ name: "Owner", role: "owner" }}
+    />);
+
+    await screen.findByLabelText("Step title");
+    await user.click(await screen.findByRole("button", { name: "Generate notes" }));
+
+    expect(await screen.findByText("AI notes added")).toBeTruthy();
+    const notes = await screen.findByLabelText("Notes (AI)") as HTMLTextAreaElement;
+    expect(notes.value).toBe("Requires an active session.");
+    expect(fetchMock).toHaveBeenCalledWith("/api/ai/notes", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        consent: true,
+        stepTitle: guide.steps[0].title,
+        description: guide.steps[0].description,
+        section: null,
+        existingNotes: null,
       }),
     }));
   });

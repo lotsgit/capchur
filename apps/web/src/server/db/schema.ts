@@ -1,4 +1,6 @@
 import type {
+  AiProcessingMode,
+  AiTriggerMode,
   ExportFormat,
   ExportJobStatus,
   Guide,
@@ -29,6 +31,10 @@ export const user = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // Null until the first-use AI notes dialog is answered.
+  aiProcessingMode: text("ai_processing_mode").$type<AiProcessingMode>(),
+  aiTriggerMode: text("ai_trigger_mode").$type<AiTriggerMode>(),
+  aiPreferencesSetAt: bigint("ai_preferences_set_at", { mode: "number" }),
 });
 
 export const session = pgTable(
@@ -140,6 +146,7 @@ export const guideSteps = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull(),
     section: text("section"),
+    notes: text("notes"),
     media: jsonb("media").$type<GuideMedia | null>(),
     annotation: jsonb("annotation").$type<GuideAnnotation | null>(),
   },
@@ -312,12 +319,15 @@ export const exportJobs = pgTable(
   ],
 );
 
+export type AiUsageFeature = "description" | "notes" | "introduction";
+
 export const aiDescriptionUsage = pgTable(
   "ai_description_usage",
   {
     id: uuid("id").primaryKey(),
     workspaceId: text("workspace_id").notNull(),
     userId: text("user_id").notNull(),
+    feature: text("feature").$type<AiUsageFeature>().default("description").notNull(),
     model: text("model").notNull(),
     inputTokens: integer("input_tokens").notNull(),
     outputTokens: integer("output_tokens").notNull(),

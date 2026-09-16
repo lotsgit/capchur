@@ -20,6 +20,7 @@ export function addGuideStep(
       title: "Untitled step",
       description: "",
       section: null,
+      notes: null,
       media: null,
       annotation: null,
     }],
@@ -92,7 +93,7 @@ export function updateGuideDetails(
 export function updateGuideStep(
   guide: Guide,
   stepId: string,
-  changes: Partial<Pick<GuideStep, "title" | "description" | "section" | "annotation">>,
+  changes: Partial<Pick<GuideStep, "title" | "description" | "section" | "notes" | "annotation">>,
   updatedAt: number,
 ): Guide {
   if (!guide.steps.some((step) => step.id === stepId)) {

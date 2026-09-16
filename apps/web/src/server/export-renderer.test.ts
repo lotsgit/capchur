@@ -24,6 +24,7 @@ function largeGuide(): Guide {
 			title: `Complete workspace operation ${index + 1} without clipping the instruction text`,
 			description: `Confirm operation ${index + 1}, review the result, and continue only when the status is complete.`,
 			section: index % 10 === 0 ? `Phase ${Math.floor(index / 10) + 1}` : null,
+			notes: null,
 			media: {
 				type: "image" as const,
 				source: `/api/images/private?objectKey=step-${index + 1}.png`,

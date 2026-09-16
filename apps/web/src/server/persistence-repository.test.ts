@@ -33,6 +33,7 @@ function write(title: string, id = stepId): GuideWrite {
       title: "First step",
       description: "Complete the first step.",
       section: null,
+      notes: null,
       media: null,
       annotation: null,
     }],
@@ -53,6 +54,9 @@ describe("persistence repository", () => {
       "0002_fair_puff_adder.sql",
       "0003_misty_umar.sql",
       "0004_known_bishop.sql",
+      "0005_common_deadpool.sql",
+      "0006_brown_gertrude_yorkes.sql",
+      "0007_nice_domino.sql",
     ]) {
       const migration = await readFile(join(process.cwd(), "drizzle", migrationName), "utf8");
       await client.exec(migration.replaceAll("--> statement-breakpoint", ""));

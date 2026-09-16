@@ -43,6 +43,17 @@ Capchur uses restricted infrastructure providers for database, object storage, b
 
 AI description enhancement is off by default and runs only after a workspace owner opts in for a step. Capchur sends bounded, redacted step text to the configured AI provider. Screenshots, credentials, full page content, and tools are not sent for this feature. Capchur retains usage totals rather than AI request content; provider retention follows the configured provider agreement.
 
+## AI Guide Notes
+
+AI notes (an optional per-step "Notes" field and an AI-drafted guide introduction) are active by default. Each account chooses, in a one-time dialog or later in Settings, whether this runs online or locally:
+
+- **Online** sends the same bounded, redacted step text (title, description, section) to a
+  configured third-party AI provider, currently defaulting to free models hosted by OpenRouter.
+- **Local** runs entirely on the user's device using the browser's built-in AI or a downloaded
+  open-source model; no step text leaves the device in this mode.
+
+Screenshots, credentials, full page content, and tools are never sent to any AI provider or model in either mode.
+
 ## Retention And Deletion
 
 - Local extension sessions remain until the user clears them or removes extension data.

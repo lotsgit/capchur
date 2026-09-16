@@ -4,6 +4,15 @@ import {
     AiDescriptionEnhancementRequestSchema,
     AiDescriptionEnhancementResponseSchema,
     AiDescriptionProviderOutputSchema,
+    AiIntroductionEnhancementRequestSchema,
+    AiIntroductionEnhancementResponseSchema,
+    AiIntroductionProviderOutputSchema,
+    AiPreferencesResponseSchema,
+    AiPreferencesSchema,
+    AiPreferencesWriteSchema,
+    AiStepNotesEnhancementRequestSchema,
+    AiStepNotesEnhancementResponseSchema,
+    AiStepNotesProviderOutputSchema,
     CONTRACT_VERSION,
     CapturedStepSchema,
     ClickCaptureSchema,
@@ -17,6 +26,7 @@ import {
     GuideUpdateRequestSchema,
     GuideWriteSchema,
     GuideSchema,
+    GuideStepSchema,
     ImageUploadIntentSchema,
     LocalSessionArchiveSchema,
     RecordingRequestMessageSchema,
@@ -50,6 +60,108 @@ describe("AI description contracts", () => {
             source: "deterministic",
             fallbackReason: "provider-failure",
         }).success).toBe(true);
+    });
+});
+
+describe("AI step notes contracts", () => {
+    it("accepts only explicit consent and privacy-minimized context", () => {
+        const request = {
+            consent: true,
+            stepTitle: "Continue",
+            description: "Click the Continue button",
+            section: null,
+            existingNotes: null,
+        } as const;
+
+        expect(AiStepNotesEnhancementRequestSchema.parse(request)).toEqual(request);
+        expect(AiStepNotesEnhancementRequestSchema.safeParse({ ...request, consent: false }).success)
+            .toBe(false);
+    });
+
+    it("allows a null notes output when no supporting detail is needed", () => {
+        expect(AiStepNotesProviderOutputSchema.safeParse({ notes: null }).success).toBe(true);
+        expect(AiStepNotesProviderOutputSchema.safeParse({ notes: "" }).success).toBe(false);
+        expect(AiStepNotesEnhancementResponseSchema.safeParse({
+            notes: null,
+            source: "ai",
+            fallbackReason: null,
+        }).success).toBe(true);
+    });
+});
+
+describe("AI introduction contracts", () => {
+    it("bounds the step context sent as AI input", () => {
+        const request = {
+            consent: true,
+            guideTitle: "Reset a password",
+            existingIntroduction: "",
+            steps: [{ title: "Open settings", section: null, description: "Navigate to settings" }],
+        } as const;
+
+        expect(AiIntroductionEnhancementRequestSchema.parse(request)).toEqual(request);
+        expect(AiIntroductionEnhancementRequestSchema.safeParse({
+            ...request,
+            steps: Array.from({ length: 51 }, () => request.steps[0]),
+        }).success).toBe(false);
+    });
+
+    it("requires structured provider output and explicit fallback metadata", () => {
+        expect(AiIntroductionProviderOutputSchema.safeParse({ introduction: "Follow these steps." }).success)
+            .toBe(true);
+        expect(AiIntroductionProviderOutputSchema.safeParse({ introduction: "" }).success).toBe(false);
+        expect(AiIntroductionEnhancementResponseSchema.safeParse({
+            introduction: "Follow these steps.",
+            source: "deterministic",
+            fallbackReason: "not-configured",
+        }).success).toBe(true);
+    });
+});
+
+describe("AI preferences contracts", () => {
+    it("only accepts known processing and trigger modes", () => {
+        expect(AiPreferencesSchema.safeParse({
+            processingMode: "online",
+            triggerMode: "automatic",
+            configuredAt: 0,
+        }).success).toBe(true);
+        expect(AiPreferencesSchema.safeParse({
+            processingMode: "cloud",
+            triggerMode: "automatic",
+            configuredAt: 0,
+        }).success).toBe(false);
+    });
+
+    it("write requests omit the server-assigned configuredAt", () => {
+        expect(AiPreferencesWriteSchema.safeParse({ processingMode: "local", triggerMode: "manual" }).success)
+            .toBe(true);
+        expect(AiPreferencesWriteSchema.safeParse({
+            processingMode: "local",
+            triggerMode: "manual",
+            configuredAt: 0,
+        }).success).toBe(false);
+    });
+
+    it("responses allow a null preferences payload before first use", () => {
+        expect(AiPreferencesResponseSchema.safeParse({ preferences: null }).success).toBe(true);
+        expect(AiPreferencesResponseSchema.safeParse({
+            preferences: { processingMode: "online", triggerMode: "automatic", configuredAt: 0 },
+        }).success).toBe(true);
+    });
+});
+
+describe("Guide step notes", () => {
+    it("defaults notes to null and rejects empty-string notes", () => {
+        const step = {
+            id: "9f7f7e9a-1b3a-4a3a-8b3a-4a3a4a3a4a3a",
+            position: 0,
+            title: "Open settings",
+            description: "",
+            section: null,
+            media: null,
+            annotation: null,
+        };
+
+        expect(GuideStepSchema.parse(step).notes).toBeNull();
     });
 });
 
@@ -127,6 +239,7 @@ const validGuide = {
         title: "Open the release editor",
         description: "Choose Releases from the workspace navigation.",
         section: null,
+        notes: null,
         media: {
             type: "image",
             source: "/fixtures/release-editor.png",

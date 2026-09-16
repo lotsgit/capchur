@@ -297,8 +297,19 @@ textarea { resize: vertical; }
 .settings-form label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .settings-form input { min-height: 42px; border: 1px solid #cfd2cb; border-radius: 5px; padding: 9px 11px; }
 .settings-form .primary-button { justify-self: start; }
+.settings-form fieldset { display: grid; gap: 8px; margin: 0; border: 1px solid var(--line); border-radius: 5px; padding: 12px 14px; }
+.settings-form fieldset legend { padding: 0 4px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.settings-form fieldset label { display: flex; flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 12px; font-weight: 500; text-transform: none; }
+.settings-form fieldset input[type="radio"] { min-height: 0; width: 16px; height: 16px; padding: 0; accent-color: var(--forest); }
 .settings-success { color: var(--forest); font-size: 11px; }
 .settings-sections a { color: var(--forest); }
+.ai-preferences-dialog { max-width: 460px; width: calc(100% - 32px); border: 1px solid var(--line); border-radius: 8px; padding: 24px; }
+.ai-preferences-dialog::backdrop { background: rgba(15, 23, 20, 0.45); }
+.ai-preferences-dialog p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.ai-preferences-dialog fieldset { display: grid; gap: 10px; margin: 14px 0; border: 1px solid var(--line); border-radius: 5px; padding: 12px 14px; }
+.ai-preferences-dialog legend { padding: 0 4px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.ai-preferences-dialog label { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--ink); }
+.ai-preferences-dialog input[type="radio"] { margin-top: 3px; accent-color: var(--forest); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 1080px) {
