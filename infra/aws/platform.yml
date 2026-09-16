@@ -30,8 +30,8 @@ Parameters:
     Description: Optional HTTPS Chrome or Edge extension listing URL.
   FirefoxExtensionStoreUrl:
     Type: String
-    Default: ""
-    Description: Optional HTTPS Firefox extension listing URL.
+    Default: "https://addons.mozilla.org/en-US/firefox/addon/capchur-workflow-guide-record/"
+    Description: HTTPS Firefox extension listing URL.
   ImageUri:
     Type: String
     Description: Immutable ECR image URI including its tag.
