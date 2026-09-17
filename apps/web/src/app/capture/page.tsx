@@ -3,6 +3,9 @@ import { Check, Download, ExternalLink, Link2, MousePointer2, Upload } from "luc
 
 import { AppNavigation } from "@/app/app-navigation";
 
+// Store URLs are read from the running container's env; never prerender this page at build time.
+export const dynamic = "force-dynamic";
+
 function storeUrl(value: string | undefined) {
   if (!value) return null;
   try {
